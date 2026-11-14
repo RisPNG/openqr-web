@@ -1,0 +1,1946 @@
+/* Build inputs */
+
+@import "tailwindcss" source(none);
+@import "vanilla-calendar-pro/styles/index.css";
+@import "./subgap.css";
+
+@source "../../deps/cinder";
+@source "../../deps/ash_authentication_phoenix";
+@source "../../deps/petal_components/lib/petal_components/combo_box.ex";
+@source "../css";
+@source "../js";
+@source "../../lib/openqr_web";
+@source "../../lib/openqr/core_utils";
+@source "../../priv/repo";
+
+@plugin "../vendor/heroicons";
+@plugin "../vendor/tabler";
+
+/* Global theme tokens and light colors */
+
+@theme static {
+  --theme-light-content: oklch(24% 0.016 252.42);
+  --theme-light-subcontent: oklch(44% 0.024 252.42);
+  --theme-dark-content: oklch(96% 0.003 252.42);
+  --theme-dark-subcontent: oklch(78% 0.012 252.42);
+
+  --color-primary: #ffffff;
+  --color-secondary: #e3e1e5;
+  --color-content: var(--theme-light-content);
+  --color-subcontent: var(--theme-light-subcontent);
+  --color-content-inverse: var(--theme-dark-content);
+  --color-subcontent-inverse: var(--theme-dark-subcontent);
+  --color-brand: #7e49b3;
+  --color-info: #6b91b4;
+  --color-success: #659780;
+  --color-warning: #ad8340;
+  --color-error: #c37380;
+
+  --color-outline: #b7b7b7;
+  --outline-target: var(--color-dark);
+
+  --overlay-opacity: 0.1;
+  --color-dark: oklch(0% 0 0 / var(--overlay-opacity));
+  --color-light: oklch(100% 0 0 / var(--overlay-opacity));
+
+  --radius-default: 0.5rem;
+  --radius-workspace: 1.5rem;
+  --radius-full: calc(infinity * 1px);
+
+  /* Fill sources publish their color and alpha without referencing adaptive colors. */
+
+  --surface-primary: var(--color-primary);
+  --surface-secondary: var(--color-secondary);
+  --surface-content: var(--color-content);
+  --surface-subcontent: var(--color-subcontent);
+  --surface-brand: var(--color-brand);
+  --surface-info: var(--color-info);
+  --surface-success: var(--color-success);
+  --surface-warning: var(--color-warning);
+  --surface-error: var(--color-error);
+  --surface-dark: rgb(from var(--color-dark) r g b / 1);
+  --surface-dark--alpha: var(--overlay-opacity);
+  --surface-light: rgb(from var(--color-light) r g b / 1);
+  --surface-light--alpha: var(--overlay-opacity);
+}
+
+/* Contextual surfaces and shadows */
+
+@theme inline {
+  --background-image-transparency-grid: repeating-conic-gradient(var(--color-outline) 0 25%, var(--surface-primary) 0 50%);
+  --background-color-surface: var(--surface-parent);
+  --background-color-control: var(--control-parent-surface, color-mix(in srgb, var(--surface-parent), hsl(from var(--outline-target) 0 0 l / 1) 3.5%));
+  --background-color-outline: var(--outline-fill);
+  --background-color-outline--outline-fill: color-mix(in oklab, var(--surface-parent), oklch(from var(--outline-target) l c h / 1) var(--outline-strength));
+  --shadow-card: 0 0 0 1px color-mix(in srgb, var(--outline-target), transparent 50%), 0 1px 2px var(--color-dark), 0 4px 12px -4px var(--color-dark);
+  --shadow-button: inset 0 1px 0 color-mix(in srgb, var(--color-light), transparent 50%), 0 1px 2px var(--color-dark);
+}
+
+/* Dark colors */
+
+[data-theme="dark"] {
+  --color-primary: #141414;
+  --color-secondary: #28252d;
+  --color-content: var(--theme-dark-content);
+  --color-subcontent: var(--theme-dark-subcontent);
+  --color-content-inverse: var(--theme-light-content);
+  --color-subcontent-inverse: var(--theme-light-subcontent);
+  --color-info: #35698f;
+  --color-success: #36745b;
+  --color-warning: #8c642b;
+  --color-error: #a24755;
+
+  --color-outline: #444444;
+  --outline-target: var(--color-light);
+  --outline-strength: 24%;
+}
+
+/* System dark colors */
+
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme]) {
+    --color-primary: #141414;
+    --color-secondary: #28252d;
+    --color-content: var(--theme-dark-content);
+    --color-subcontent: var(--theme-dark-subcontent);
+    --color-content-inverse: var(--theme-light-content);
+    --color-subcontent-inverse: var(--theme-light-subcontent);
+    --color-info: #35698f;
+    --color-success: #36745b;
+    --color-warning: #8c642b;
+    --color-error: #a24755;
+
+    --color-outline: #444444;
+    --outline-target: var(--color-light);
+    --outline-strength: 24%;
+  }
+}
+
+/* Adaptive surface colors */
+
+@property --outline-fill {
+  syntax: "<color>";
+  inherits: true;
+  initial-value: transparent;
+}
+
+@property --surface {
+  syntax: "<color>";
+  inherits: true;
+  initial-value: transparent;
+}
+
+@property --surface-base {
+  syntax: "*";
+  inherits: false;
+}
+
+@property --surface-modified {
+  syntax: "*";
+  inherits: false;
+}
+
+@property --surface-slot {
+  syntax: "<integer>";
+  inherits: true;
+  initial-value: 0;
+}
+
+@property --surface-a {
+  syntax: "<color>";
+  inherits: true;
+  initial-value: transparent;
+}
+
+@property --surface-b {
+  syntax: "<color>";
+  inherits: true;
+  initial-value: transparent;
+}
+
+@property --surface-alpha-a {
+  syntax: "<number>";
+  inherits: true;
+  initial-value: 0;
+}
+
+@property --surface-alpha-b {
+  syntax: "<number>";
+  inherits: true;
+  initial-value: 0;
+}
+
+@property --surface-overlay-kind-a {
+  syntax: "<integer>";
+  inherits: true;
+  initial-value: 0;
+}
+
+@property --surface-overlay-kind-b {
+  syntax: "<integer>";
+  inherits: true;
+  initial-value: 0;
+}
+
+@property --surface-overlay-strength-a {
+  syntax: "<number>";
+  inherits: true;
+  initial-value: 0;
+}
+
+@property --surface-overlay-strength-b {
+  syntax: "<number>";
+  inherits: true;
+  initial-value: 0;
+}
+
+@property --surface-overlay-source-a {
+  syntax: "<color>";
+  inherits: true;
+  initial-value: transparent;
+}
+
+@property --surface-overlay-source-b {
+  syntax: "<color>";
+  inherits: true;
+  initial-value: transparent;
+}
+
+@property --surface-fill {
+  syntax: "<color>";
+  inherits: true;
+  initial-value: transparent;
+}
+
+@property --surface-reset {
+  syntax: "*";
+  inherits: false;
+}
+
+@property --surface-opacity-fill {
+  syntax: "*";
+  inherits: false;
+}
+
+@property --surface-opacity-step {
+  syntax: "*";
+  inherits: false;
+}
+
+@property --surface-fill-alpha {
+  syntax: "<number>";
+  inherits: false;
+  initial-value: 0;
+}
+
+@property --surface-paint-alpha {
+  syntax: "<number>";
+  inherits: false;
+  initial-value: 0;
+}
+
+@property --surface-overlay-kind {
+  syntax: "*";
+  inherits: false;
+}
+
+@property --surface-overlay-source {
+  syntax: "*";
+  inherits: false;
+}
+
+@property --surface-overlay-lightness {
+  syntax: "*";
+  inherits: false;
+}
+
+@property --surface-overlay-step {
+  syntax: "*";
+  inherits: false;
+}
+
+@property --surface-overlay-total-strength {
+  syntax: "*";
+  inherits: false;
+}
+
+@property --surface-overlay-prior-strength {
+  syntax: "<number>";
+  inherits: false;
+  initial-value: 0;
+}
+
+@layer base {
+  :root {
+    --surface: var(--color-primary);
+    --surface-a: var(--color-primary);
+    --surface-b: var(--color-primary);
+    --surface-fill: var(--color-primary);
+    --outline-strength: 22%;
+    --field-motion: 150ms;
+  }
+}
+
+@utility adaptive-outline {
+  @supports (color: color-mix(in oklab, white, oklch(from black l c h / 1))) {
+    --color-outline: color-mix(in oklab, var(--surface), oklch(from var(--outline-target) l c h / 1) var(--outline-strength));
+  }
+}
+
+:root,
+:root:not([data-theme]),
+*,
+::before,
+::after {
+  @apply adaptive-outline;
+}
+
+::-webkit-slider-thumb {
+  @apply adaptive-outline;
+}
+
+::-moz-range-thumb {
+  @apply adaptive-outline;
+}
+
+@layer base {
+  *,
+  ::before,
+  ::after {
+    --outline-fill: var(--color-outline);
+  }
+}
+
+/* Alternating context slots preserve inherited inputs while publishing each layer's visible surface. */
+
+@utility surface-colors {
+  --surface-fill: var(--surface-base);
+  --surface-source: var(--surface-base, var(--surface-opacity-fill, var(--surface-parent)));
+  --surface-background: var(--surface-modified, rgb(from var(--surface-source) r g b / var(--surface-paint-alpha)));
+  --surface-rendered: color-mix(in srgb, var(--surface-parent), rgb(from var(--surface-source) r g b / 1) calc(var(--surface-paint-alpha) * 100%));
+  --surface-overlay-carry: calc(1 - sign(var(--surface-paint-alpha)));
+  --surface-overlay-total-strength: clamp(0, calc(var(--surface-overlay-prior-strength) + var(--surface-overlay-step)), 1);
+  --surface-modified: hsl(from var(--surface-overlay-source) h calc(s + (100 - s) * var(--surface-overlay-total-strength) * sign(s)) calc(l + (var(--surface-overlay-lightness) - l) * var(--surface-overlay-total-strength)) / 1);
+
+  @container style(--surface-slot: 0) {
+    --surface-slot: 1;
+    --surface-parent: var(--surface-b);
+    --surface-prior-alpha: var(--surface-reset, var(--surface-alpha-b));
+    --surface-total-alpha: clamp(0, calc(var(--surface-prior-alpha) + var(--surface-opacity-step, var(--surface-fill-alpha))), 1);
+    --surface-paint-alpha: calc((var(--surface-total-alpha) - var(--surface-prior-alpha)) / (1 - var(--surface-prior-alpha)));
+    --surface-alpha-a: var(--surface-total-alpha);
+    --surface-overlay-kind-a: var(--surface-overlay-kind, calc(var(--surface-overlay-carry) * var(--surface-reset, var(--surface-overlay-kind-b))));
+    --surface-overlay-strength-a: var(--surface-overlay-total-strength, calc(var(--surface-overlay-carry) * var(--surface-reset, var(--surface-overlay-strength-b))));
+    --surface-overlay-source-a: var(--surface-overlay-source, color-mix(in srgb, var(--surface-rendered), var(--surface-overlay-source-b) calc(var(--surface-overlay-carry) * 100%)));
+    --surface-a: var(--surface-modified, var(--surface-rendered));
+    --surface: var(--surface-a);
+  }
+
+  @container style(--surface-slot: 1) {
+    --surface-slot: 0;
+    --surface-parent: var(--surface-a);
+    --surface-prior-alpha: var(--surface-reset, var(--surface-alpha-a));
+    --surface-total-alpha: clamp(0, calc(var(--surface-prior-alpha) + var(--surface-opacity-step, var(--surface-fill-alpha))), 1);
+    --surface-paint-alpha: calc((var(--surface-total-alpha) - var(--surface-prior-alpha)) / (1 - var(--surface-prior-alpha)));
+    --surface-alpha-b: var(--surface-total-alpha);
+    --surface-overlay-kind-b: var(--surface-overlay-kind, calc(var(--surface-overlay-carry) * var(--surface-reset, var(--surface-overlay-kind-a))));
+    --surface-overlay-strength-b: var(--surface-overlay-total-strength, calc(var(--surface-overlay-carry) * var(--surface-reset, var(--surface-overlay-strength-a))));
+    --surface-overlay-source-b: var(--surface-overlay-source, color-mix(in srgb, var(--surface-rendered), var(--surface-overlay-source-a) calc(var(--surface-overlay-carry) * 100%)));
+    --surface-b: var(--surface-modified, var(--surface-rendered));
+    --surface: var(--surface-b);
+  }
+}
+
+@utility bg-* {
+  --outline-fill: --value(--background-color-*--outline-fill);
+  --surface-base: --value(--background-color-*, --surface-*, --color-*);
+  --surface-reset: 0;
+  --surface-fill-alpha: 1;
+  --surface-fill-alpha: --value(--surface-*--alpha);
+  @apply surface-colors;
+  background-color: var(--surface-background) !important;
+}
+
+@utility bg-transparent {
+  --surface-base: initial;
+  --surface-reset: initial;
+  --surface-fill-alpha: 0;
+  @apply surface-colors;
+  background-color: var(--surface-background) !important;
+}
+
+@utility fill-* {
+  --surface-base: --value(--surface-*);
+  --surface-reset: 0;
+  --surface-fill-alpha: 1;
+  --surface-fill-alpha: --value(--surface-*--alpha);
+  @apply surface-colors;
+  fill: var(--surface-background, --value(--surface-*)) !important;
+}
+
+@utility fill-transparent {
+  --surface-base: initial;
+  --surface-reset: initial;
+  --surface-fill-alpha: 0;
+  @apply surface-colors;
+  fill: var(--surface-background) !important;
+}
+
+/* Surface overlays */
+
+@utility overlay-dark-* {
+  --surface-overlay-kind: 1;
+  --surface-overlay-lightness: 0;
+  --surface-overlay-step: clamp(0, --value([number], --default(var(--overlay-opacity))), 1);
+  --surface-overlay-prior-strength: 0;
+  --surface-overlay-source: var(--surface-rendered);
+  @apply surface-colors;
+  background-color: var(--surface-background) !important;
+
+  @container style(--surface-slot: 0) and style(--surface-overlay-kind-b: 1) {
+    --surface-overlay-prior-strength: calc(var(--surface-overlay-carry) * var(--surface-reset, var(--surface-overlay-strength-b)));
+    --surface-overlay-source: color-mix(in srgb, var(--surface-rendered), var(--surface-overlay-source-b) calc(sign(var(--surface-overlay-prior-strength)) * 100%));
+  }
+
+  @container style(--surface-slot: 1) and style(--surface-overlay-kind-a: 1) {
+    --surface-overlay-prior-strength: calc(var(--surface-overlay-carry) * var(--surface-reset, var(--surface-overlay-strength-a)));
+    --surface-overlay-source: color-mix(in srgb, var(--surface-rendered), var(--surface-overlay-source-a) calc(sign(var(--surface-overlay-prior-strength)) * 100%));
+  }
+}
+
+@utility overlay-light-* {
+  --surface-overlay-kind: 2;
+  --surface-overlay-lightness: 100;
+  --surface-overlay-step: clamp(0, --value([number], --default(var(--overlay-opacity))), 1);
+  --surface-overlay-prior-strength: 0;
+  --surface-overlay-source: var(--surface-rendered);
+  @apply surface-colors;
+  background-color: var(--surface-background) !important;
+
+  @container style(--surface-slot: 0) and style(--surface-overlay-kind-b: 2) {
+    --surface-overlay-prior-strength: calc(var(--surface-overlay-carry) * var(--surface-reset, var(--surface-overlay-strength-b)));
+    --surface-overlay-source: color-mix(in srgb, var(--surface-rendered), var(--surface-overlay-source-b) calc(sign(var(--surface-overlay-prior-strength)) * 100%));
+  }
+
+  @container style(--surface-slot: 1) and style(--surface-overlay-kind-a: 2) {
+    --surface-overlay-prior-strength: calc(var(--surface-overlay-carry) * var(--surface-reset, var(--surface-overlay-strength-a)));
+    --surface-overlay-source: color-mix(in srgb, var(--surface-rendered), var(--surface-overlay-source-a) calc(sign(var(--surface-overlay-prior-strength)) * 100%));
+  }
+}
+
+@utility overlay-opacity-* {
+  --surface-opacity-step: --value([number], --default(var(--overlay-opacity)));
+  --surface-opacity-fill: var(--surface-fill);
+  @apply surface-colors;
+  background-color: var(--surface-background) !important;
+}
+
+/* Global variants and theme transitions */
+
+@custom-variant phx-click-loading (.phx-click-loading&, .phx-click-loading &);
+@custom-variant phx-submit-loading (.phx-submit-loading&, .phx-submit-loading &);
+@custom-variant phx-change-loading (.phx-change-loading&, .phx-change-loading &);
+
+@custom-variant dark {
+  &:where([data-theme=dark], [data-theme=dark] *) {
+    @slot;
+  }
+
+  @media (prefers-color-scheme: dark) {
+    &:where(:root:not([data-theme]), :root:not([data-theme]) *) {
+      @slot;
+    }
+  }
+}
+
+::view-transition-group(root) {
+  animation: none;
+}
+
+::view-transition-old(root),
+::view-transition-new(root) {
+  animation: none;
+  mix-blend-mode: normal;
+}
+
+::view-transition-old(root) {
+  z-index: 1;
+}
+
+::view-transition-new(root) {
+  z-index: 2;
+  animation: theme-wipe 480ms cubic-bezier(0.4, 0, 0.2, 1) both;
+}
+
+@keyframes theme-wipe {
+  from {
+    clip-path: polygon(0 0, 0 0, 0 0);
+  }
+  to {
+    clip-path: polygon(0 0, 200% 0, 0 200%);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  ::view-transition-new(root) {
+    animation: none;
+  }
+}
+
+/* Shared corner rounding */
+
+@utility rounded-default {
+  rx: var(--radius-default);
+}
+
+@utility rounded-full {
+  rx: min(var(--radius-full), calc(min(attr(width px), attr(height px)) / 2));
+  ry: auto;
+}
+
+/* LiveView structure */
+
+[data-phx-session], [data-phx-teleported-src] { display: contents }
+
+/* Application frame and navigation */
+
+@utility shell-surface {
+  @apply bg-primary overlay-dark-[0.04] dark:overlay-light-[0.04];
+}
+
+@utility workspace-canvas {
+  @apply bg-primary;
+  anchor-name: --workspace;
+  --workspace-shell-surface: var(--surface-parent);
+
+  &::before {
+    content: "";
+    position: fixed;
+    position-anchor: --workspace;
+    top: 4rem;
+    left: anchor(left);
+    width: var(--radius-workspace);
+    height: var(--radius-workspace);
+    z-index: 20;
+    pointer-events: none;
+    background-color: var(--workspace-shell-surface);
+    mask-image: radial-gradient(circle at bottom right, transparent calc(var(--radius-workspace) - 0.5px), black var(--radius-workspace));
+  }
+}
+
+@utility panel-surface {
+  @apply bg-primary overlay-dark-[0.025] dark:overlay-light-[0.025];
+  --control-parent-surface: var(--surface-parent);
+}
+
+@utility inset-surface {
+  @apply bg-transparent overlay-dark-[0.035] dark:overlay-light-[0.035];
+  --control-parent-surface: var(--surface-parent);
+}
+
+@utility nav-item {
+  @apply rounded-full text-subcontent transition-colors hover:overlay-dark;
+}
+
+/* Shared buttons */
+
+@utility button-base {
+  @apply inline-grid place-items-center rounded-default font-medium transition-colors focus:outline-none focus:ring-2 focus:ring-brand disabled:opacity-50 disabled:pointer-events-none;
+}
+
+@utility button-text {
+  @apply text-brand underline-offset-4 hover:underline focus-visible:underline;
+}
+
+@utility button-primary {
+  @apply border border-brand bg-brand text-content-inverse dark:text-content shadow-button hover:overlay-dark focus:border-brand active:shadow-none disabled:shadow-none;
+}
+
+@utility button-neutral {
+  @apply border border-outline bg-transparent text-content shadow-button hover:overlay-dark focus:border-brand active:shadow-none disabled:shadow-none;
+}
+
+@utility button-default {
+  @apply border border-transparent bg-control text-subcontent hover:overlay-dark focus:border-brand;
+
+  &[aria-pressed="true"],
+  &[aria-selected="true"] {
+    @apply bg-brand overlay-opacity-[0.12] text-content;
+  }
+}
+
+@utility button-danger {
+  @apply border border-error bg-error overlay-opacity-[0.12] text-content shadow-button hover:overlay-dark focus:border-error active:shadow-none disabled:shadow-none;
+}
+
+/* Shared feedback */
+
+@utility flash-surface {
+  --flash-accent: var(--color-info);
+  --surface-base: color-mix(in srgb, var(--color-primary), var(--flash-accent) 24%);
+  --surface-reset: 0;
+  --surface-fill-alpha: 1;
+  @apply surface-colors;
+  background-color: var(--surface-background) !important;
+
+  &[data-flash-kind="error"] {
+    --flash-accent: var(--color-error);
+  }
+
+  &[data-flash-kind="warning"] {
+    --flash-accent: var(--color-warning);
+  }
+}
+
+@utility status-pill {
+  @apply inline-grid place-items-center px-2 py-0.5 rounded-full text-xs font-medium whitespace-nowrap overlay-opacity-[0.12];
+}
+
+/* Shared listings */
+
+@utility listing-surface {
+  @apply rounded-default border border-outline shadow-card;
+}
+
+@utility listing-table {
+  @apply w-full text-left text-sm;
+  & tbody tr:nth-child(even):not(:has(input:checked)) {
+    @apply bg-primary overlay-dark-[0.02] dark:overlay-light-[0.02];
+  }
+  & tbody tr + tr {
+    @apply border-t border-outline;
+  }
+}
+
+@utility listing-heading {
+  @apply bg-primary overlay-dark-[0.04] dark:overlay-light-[0.04] px-4 py-3 text-left font-medium text-subcontent whitespace-nowrap;
+}
+
+@utility listing-cell {
+  @apply px-4 py-2 text-content;
+}
+
+/* Shared input controls and floating labels */
+
+.input-floating-control {
+  padding-top: 0.5rem;
+  padding-bottom: 0.5rem;
+  line-height: 1.25rem;
+  transition: border-color var(--field-motion) ease, box-shadow var(--field-motion) ease, padding var(--field-motion) ease;
+}
+
+.input-floating-control::placeholder {
+  color: var(--color-subcontent);
+  opacity: 1;
+  transition: opacity var(--field-motion) ease;
+}
+
+[data-input-empty="true"] {
+  color: var(--color-subcontent);
+}
+
+:has(> .input-floating-label) :is(span.input-floating-control, span.pc-combo-box__input)[data-input-empty="true"] {
+  color: transparent;
+}
+
+[data-password-display]:not([data-input-empty="true"]) {
+  -webkit-text-security: disc;
+}
+
+[data-input-rows] {
+  min-height: calc(var(--input-rows) * 1.25rem + 1rem + 2px);
+  line-height: 1.25rem;
+}
+
+.input-floating-textarea[data-input-rows]:not([data-input-empty="true"]) {
+  min-height: calc(var(--input-rows) * 1.25rem + 1.5rem + 2px);
+}
+
+:has(> .input-floating-label):not(:focus-within) .input-floating-control::placeholder,
+.pc-combo-box.input-floating-wrapper:has(+ .input-floating-label):not(:focus-within) .pc-combo-box__input::placeholder {
+  opacity: 0;
+}
+
+:has(> .input-floating-label):not(:focus-within) > .input-native-select:enabled:not([readonly]):has(option:checked[value=""]),
+[data-file-has-value="false"][data-file-editable-like="true"]:not([data-file-has-placeholder="true"]):not(:focus-within) [data-file-control] :has(> .input-floating-label) > :is([data-file-name], input[type="file"]) {
+  color: transparent;
+}
+
+.input-floating-textarea {
+  min-height: 2.75rem;
+  padding-top: 0.5rem;
+  padding-bottom: 0.5rem;
+}
+
+.input-floating-textarea:focus,
+.input-floating-textarea:not(:placeholder-shown):not([data-input-empty="true"]) {
+  padding-top: 1rem;
+  padding-bottom: 0.5rem;
+}
+
+.input-floating-label {
+  pointer-events: none;
+  position: absolute;
+  z-index: 1;
+  left: 0.75rem;
+  top: 50%;
+  transform: translateY(-50%);
+  border-radius: var(--radius-default);
+  background-color: transparent;
+  box-shadow: none;
+  isolation: isolate;
+  padding-left: 0.25rem;
+  padding-right: 0.25rem;
+  color: var(--color-subcontent);
+  font-size: 0.875rem;
+  line-height: 1.25rem;
+  opacity: 1;
+  transition:
+    top var(--field-motion) ease,
+    left var(--field-motion) ease,
+    color var(--field-motion) ease,
+    font-size var(--field-motion) ease,
+    line-height var(--field-motion) ease,
+    opacity var(--field-motion) ease;
+}
+
+.input-floating-label::before {
+  content: "";
+  position: absolute;
+  inset-inline: -0.1875rem;
+  top: -0.1875rem;
+  height: calc(50% + 0.1875rem + 1px);
+  z-index: -1;
+  border-radius: inherit;
+  background-color: var(--surface);
+  opacity: 0;
+  transition: opacity 0s;
+}
+
+.input-floating-textarea + .input-floating-label {
+  top: 0.75rem;
+  transform: translateY(0);
+}
+
+.input-floating-wrapper-tags + .input-floating-label,
+*:has(> .input-floating-wrapper-tags) + .input-floating-label {
+  top: 1.375rem;
+  transform: translateY(-50%);
+}
+
+:focus-within > .input-floating-label,
+.input-floating-control:focus + .input-floating-label,
+.input-floating-control:not([type="file"]):not([data-file-display]):not(select):not(:placeholder-shown):not([data-input-empty="true"]) + .input-floating-label,
+.input-floating-wrapper:has(.input-floating-control:focus) + .input-floating-label,
+.input-floating-wrapper:has(.input-floating-control:not([type="file"]):not([data-file-display]):not(select):not(:placeholder-shown):not([data-input-empty="true"])) + .input-floating-label,
+*:has(> .input-floating-wrapper .input-floating-control:focus) + .input-floating-label,
+*:has(> .input-floating-wrapper .input-floating-control:not([type="file"]):not([data-file-display]):not(select):not(:placeholder-shown):not([data-input-empty="true"])) + .input-floating-label,
+.pc-combo-box.input-floating-wrapper:focus-within + .input-floating-label,
+.pc-combo-box.input-floating-wrapper[data-has-value] + .input-floating-label,
+.pc-combo-box.input-floating-wrapper:has(.pc-combo-box__input:disabled) + .input-floating-label,
+*:has(> .core-selection-input.input-floating-wrapper:focus-within) + .input-floating-label,
+*:has(> .core-selection-input.input-floating-wrapper[data-has-value]) + .input-floating-label,
+*:has(> .core-selection-input.input-floating-wrapper .pc-combo-box__select:disabled) + .input-floating-label,
+.input-native-select:is(:disabled, [readonly]) + .input-floating-label,
+.input-native-select:has(option:checked:not([value=""])) + .input-floating-label,
+[data-file-control]:focus-within .input-floating-label,
+:is([data-file-has-value="true"], [data-file-editable-like="false"], :where([data-file-has-placeholder="true"][data-file-editable-like="true"])) [data-file-control] .input-floating-label {
+  top: 0;
+  color: var(--color-brand);
+  font-size: 0.75rem;
+  line-height: 1rem;
+  opacity: 1;
+}
+
+:focus-within > .input-floating-label::before,
+.input-floating-control:focus + .input-floating-label::before,
+.input-floating-control:not([type="file"]):not([data-file-display]):not(select):not(:placeholder-shown):not([data-input-empty="true"]) + .input-floating-label::before,
+.input-floating-wrapper:has(.input-floating-control:focus) + .input-floating-label::before,
+.input-floating-wrapper:has(.input-floating-control:not([type="file"]):not([data-file-display]):not(select):not(:placeholder-shown):not([data-input-empty="true"])) + .input-floating-label::before,
+*:has(> .input-floating-wrapper .input-floating-control:focus) + .input-floating-label::before,
+*:has(> .input-floating-wrapper .input-floating-control:not([type="file"]):not([data-file-display]):not(select):not(:placeholder-shown):not([data-input-empty="true"])) + .input-floating-label::before,
+.pc-combo-box.input-floating-wrapper:focus-within + .input-floating-label::before,
+.pc-combo-box.input-floating-wrapper[data-has-value] + .input-floating-label::before,
+.pc-combo-box.input-floating-wrapper:has(.pc-combo-box__input:disabled) + .input-floating-label::before,
+*:has(> .core-selection-input.input-floating-wrapper:focus-within) + .input-floating-label::before,
+*:has(> .core-selection-input.input-floating-wrapper[data-has-value]) + .input-floating-label::before,
+*:has(> .core-selection-input.input-floating-wrapper .pc-combo-box__select:disabled) + .input-floating-label::before,
+.input-native-select:is(:disabled, [readonly]) + .input-floating-label::before,
+.input-native-select:has(option:checked:not([value=""])) + .input-floating-label::before,
+[data-file-control]:focus-within .input-floating-label::before,
+:is([data-file-has-value="true"], [data-file-editable-like="false"], :where([data-file-has-placeholder="true"][data-file-editable-like="true"])) [data-file-control] .input-floating-label::before {
+  opacity: 1;
+  transition-delay: var(--field-motion);
+}
+
+.input-floating-textarea:focus + .input-floating-label,
+.input-floating-textarea:not(:placeholder-shown):not([data-input-empty="true"]) + .input-floating-label {
+  transform: translateY(-50%);
+}
+
+/* Shared input popover positioning */
+
+.color-input-popover,
+[data-calendar-popover][data-vc=calendar] {
+  position: fixed;
+  position-anchor: auto;
+  position-area: block-end span-inline-end;
+  inset: auto;
+  margin: 0.25rem 0;
+  max-width: calc(100vw - 1rem);
+}
+
+.color-input-popover {
+  position-try-fallbacks: flip-inline, flip-block, flip-block flip-inline;
+  position-try-order: most-block-size;
+}
+
+/* Shared input utilities */
+
+@utility option-surface {
+  @apply overlay-dark dark:overlay-light;
+}
+
+@utility bg-control-radio {
+  background-image: radial-gradient(circle, currentColor 28%, transparent 32%);
+}
+
+@utility bg-control-check {
+  position: relative;
+
+  &::after {
+    content: "";
+    position: absolute;
+    inset: 0;
+    background-color: currentColor;
+    mask: url('data:image/svg+xml,%3csvg%20viewBox=%220%200%2016%2016%22%20xmlns=%22http://www.w3.org/2000/svg%22%3e%3cpath%20d=%22M12.207%204.793a1%201%200%20010%201.414l-5%205a1%201%200%2001-1.414%200l-2-2a1%201%200%20011.414-1.414L6.5%209.086l4.293-4.293a1%201%200%20011.414%200z%22/%3e%3c/svg%3e') center / 100% 100% no-repeat;
+  }
+}
+
+@utility input-clear-button {
+  @apply absolute top-1/2 -translate-y-1/2 size-6 place-items-center rounded-default text-error cursor-pointer opacity-0 pointer-events-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand;
+}
+
+/* Clear actions */
+
+[data-core-input][data-input-clearable="true"][data-input-has-value="true"]:hover [data-input-clear],
+[data-input-clear]:focus-visible {
+  @apply opacity-100 pointer-events-auto;
+}
+
+[data-core-input][data-input-clearable="true"]:not([data-input-type="color"]):has([data-input-clear]) :is(input, textarea)[data-input-value] {
+  @apply pr-12;
+}
+
+[data-core-input][data-input-clearable="true"][data-input-type="password"]:has([data-input-clear]) [data-input-value] {
+  @apply pr-20;
+}
+
+[data-core-input][data-input-type="password"] [data-input-clear] {
+  @apply right-12;
+}
+
+[data-core-input][data-input-type="textarea"] [data-input-clear] {
+  top: 0.875rem;
+  translate: none;
+  transform: none;
+}
+
+[data-core-input][data-input-type="textarea"]:has(textarea:not(.input-floating-textarea)) [data-input-clear] {
+  top: 0.375rem;
+}
+
+[data-core-input][data-input-type="textarea"]:has(textarea[data-input-text]) [data-input-clear] {
+  top: 0.125rem;
+}
+
+[data-core-input]:is([data-input-type="select"], [data-input-type="combobox"]):has([data-input-clear]) .core-selection-input .pc-combo-box__trigger-label {
+  @apply pr-7;
+}
+
+[data-file-control]:hover [data-file-clear],
+[data-file-clear]:focus-visible {
+  @apply opacity-100 pointer-events-auto;
+}
+
+/* Combobox controls */
+
+:has(+ .input-floating-label) > .core-selection-input.input-floating-wrapper:not([data-has-value]):not(:focus-within):not(:has(.pc-combo-box__select:disabled)) [data-pc-combo-trigger-label] {
+  visibility: hidden;
+}
+
+.pc-combo-box {
+  @apply relative min-w-0 w-full;
+  anchor-scope: --combobox;
+}
+
+.pc-combo-box__select,
+.pc-combo-box__live {
+  @apply sr-only;
+}
+
+.pc-combo-box__control,
+.pc-combo-box__trigger {
+  @apply grid grid-cols-[minmax(0,1fr)_auto] gap-1.5 items-center min-h-11 w-full rounded-default border border-outline bg-transparent text-content touch-manipulation;
+  anchor-name: --combobox;
+}
+
+.pc-combo-box__control {
+  @apply pr-3;
+}
+
+.pc-combo-box__trigger {
+  @apply px-3 py-2 text-left text-sm cursor-pointer focus:outline-none;
+}
+
+.pc-combo-box__control:not(:has([data-pc-combo-chips])):focus-within,
+.pc-combo-box__trigger:focus-visible {
+  @apply border-brand ring-2 ring-brand;
+}
+
+.pc-combo-box__control:not(:has([data-pc-combo-chips])):has(.pc-combo-box__input:disabled),
+.pc-combo-box[data-input-disabled="true"] .pc-combo-box__control:not(:has([data-pc-combo-chips])),
+.pc-combo-box[data-input-disabled="true"] .pc-combo-box__trigger,
+.pc-combo-box__trigger:disabled {
+  @apply overlay-dark text-subcontent cursor-not-allowed;
+}
+
+.pc-combo-box:has(.pc-combo-box__select:disabled),
+.pc-combo-box[data-input-disabled="true"] {
+  pointer-events: none;
+}
+
+.pc-combo-box:has(.pc-combo-box__select:disabled) .pc-combo-box__panel {
+  display: none;
+}
+
+.pc-combo-box:not([data-has-value]):has(.pc-combo-box__select:disabled) [data-pc-combo-trigger-label] {
+  visibility: hidden;
+}
+
+.pc-combo-box__content {
+  @apply min-w-0;
+}
+
+.pc-combo-box__input {
+  @apply block min-w-0 w-full appearance-none bg-transparent border-0 px-3 py-2 text-sm text-content focus:outline-none focus:ring-0 disabled:text-subcontent disabled:cursor-not-allowed;
+  line-height: 1.25rem;
+}
+
+.pc-combo-box[data-input-disabled="true"] .pc-combo-box__input {
+  @apply text-subcontent cursor-not-allowed;
+}
+
+.pc-combo-box__input::placeholder,
+.pc-combo-box__trigger[data-placeholder] {
+  color: var(--color-subcontent);
+}
+
+.pc-combo-box__trigger-label,
+.pc-combo-box__selected-content {
+  @apply min-w-0 truncate;
+}
+
+.pc-combo-box__chevron.pc-combo-box__chevron {
+  @apply size-5 text-subcontent pointer-events-none;
+}
+
+.pc-combo-box__clear,
+.pc-combo-box__trigger-clear {
+  @apply input-clear-button hidden right-9;
+}
+
+.pc-combo-box[data-has-value] .pc-combo-box__clear,
+.pc-combo-box[data-has-value] .pc-combo-box__trigger-clear {
+  @apply grid;
+}
+
+.pc-combo-box__control:hover > .pc-combo-box__clear,
+.pc-combo-box:hover > .pc-combo-box__trigger-clear,
+.pc-combo-box__clear:focus-visible,
+.pc-combo-box__trigger-clear:focus-visible {
+  @apply opacity-100 pointer-events-auto;
+}
+
+.pc-combo-box__clear:disabled,
+.pc-combo-box__trigger-clear:disabled {
+  @apply pointer-events-none;
+}
+
+.pc-combo-box:has(.pc-combo-box__clear) .pc-combo-box__content,
+.pc-combo-box[data-has-value] .pc-combo-box__trigger--clearable .pc-combo-box__trigger-label {
+  @apply pr-7;
+}
+
+.pc-combo-box__clear-icon.pc-combo-box__clear-icon,
+.pc-combo-box__chip-remove-icon.pc-combo-box__chip-remove-icon {
+  @apply size-5;
+}
+
+.pc-combo-box__panel {
+  @apply fixed z-50 rounded-default border border-outline bg-surface shadow-lg;
+  position-anchor: --combobox;
+  position-area: block-end span-inline-end;
+  position-try-fallbacks: flip-inline;
+  inset: auto;
+  margin: 0.25rem 0;
+  width: max(anchor-size(width), var(--combobox-min-width, 0rem));
+  max-width: calc(100vw - 1rem);
+}
+
+.pc-combo-box__panel[data-flip] {
+  position-area: block-start span-inline-end;
+}
+
+.pc-combo-box__list {
+  @apply max-h-60 overflow-y-auto;
+}
+
+.core-selection-input .pc-combo-box__panel {
+  @apply grid grid-cols-[minmax(0,1fr)];
+}
+
+.core-selection-input .pc-combo-box__list {
+  min-height: 0;
+  max-height: 15.75rem;
+}
+
+.pc-combo-box__panel[hidden],
+.pc-combo-box__option[hidden],
+.pc-combo-box__group[hidden],
+.pc-combo-box__loading[hidden],
+.pc-combo-box__empty[hidden],
+.pc-combo-box__create[hidden],
+.pc-combo-box__error[hidden] {
+  display: none;
+}
+
+.pc-combo-box__option,
+.pc-combo-box__create {
+  @apply grid grid-cols-[minmax(0,1fr)_1.25rem] gap-2 items-center px-3 py-2 text-sm text-content cursor-pointer select-none touch-manipulation;
+}
+
+.pc-combo-box__option:hover,
+.pc-combo-box__option[data-highlighted],
+.pc-combo-box__option[aria-selected="true"],
+.pc-combo-box__create[data-highlighted] {
+  @apply option-surface;
+}
+
+.pc-combo-box__option[aria-selected="true"] {
+  @apply font-semibold;
+}
+
+.pc-combo-box__option[data-disabled] {
+  @apply text-subcontent cursor-not-allowed pointer-events-none;
+}
+
+.pc-combo-box__option-label,
+.pc-combo-box__option-content {
+  @apply min-w-0;
+}
+
+.pc-combo-box__check.pc-combo-box__check {
+  @apply size-4 invisible pointer-events-none;
+}
+
+.pc-combo-box__option[aria-selected="true"] .pc-combo-box__check {
+  @apply visible;
+}
+
+.pc-combo-box__search {
+  @apply grid grid-cols-[1rem_minmax(0,1fr)] gap-2 items-center px-3 border-b border-outline;
+}
+
+.pc-combo-box__search .pc-combo-box__input {
+  @apply px-0;
+}
+
+.pc-combo-box__search-icon.pc-combo-box__search-icon,
+.pc-combo-box__create-icon.pc-combo-box__create-icon,
+.pc-combo-box__loading-icon.pc-combo-box__loading-icon {
+  @apply size-4 text-subcontent pointer-events-none;
+}
+
+.pc-combo-box__loading-icon {
+  @apply animate-spin;
+}
+
+.pc-combo-box__group-heading,
+.pc-combo-box__header,
+.pc-combo-box__footer {
+  @apply px-3 py-2 text-xs text-subcontent;
+}
+
+.pc-combo-box__header {
+  @apply border-b border-outline;
+}
+
+.pc-combo-box__footer {
+  @apply border-t border-outline;
+}
+
+.pc-combo-box__empty,
+.pc-combo-box__loading {
+  @apply px-3 py-2 text-sm text-subcontent;
+}
+
+.pc-combo-box__loading {
+  @apply grid grid-cols-[1rem_minmax(0,1fr)] gap-2 items-center;
+}
+
+.pc-combo-box__control:has([data-pc-combo-chips]) {
+  @apply grid-cols-[minmax(0,1fr)] min-h-0 border-0 rounded-none p-0;
+  anchor-name: none;
+}
+
+.pc-combo-box__control:has([data-pc-combo-chips]) .pc-combo-box__content {
+  @apply grid grid-cols-[minmax(0,1fr)] gap-1;
+}
+
+.pc-combo-box__control:has([data-pc-combo-chips]) .pc-combo-box__input {
+  @apply col-start-1 row-start-1 min-h-11 rounded-default border border-outline px-3 pr-10 py-2 focus:border-brand focus:ring-2 focus:ring-brand disabled:overlay-dark;
+  anchor-name: --combobox;
+}
+
+.pc-combo-box[data-input-disabled="true"] .pc-combo-box__control:has([data-pc-combo-chips]) .pc-combo-box__input {
+  @apply overlay-dark;
+}
+
+.pc-combo-box__control:has([data-pc-combo-chips]) .pc-combo-box__content::after {
+  @apply col-start-1 row-start-1 self-center justify-self-end mr-3 hero-chevron-down-mini size-5 text-subcontent cursor-pointer;
+  content: "";
+}
+
+.pc-combo-box__control:has(.pc-combo-box__input:disabled) .pc-combo-box__content::after,
+.pc-combo-box[data-input-disabled="true"] .pc-combo-box__content::after {
+  @apply cursor-not-allowed;
+}
+
+.pc-combo-box__chips {
+  @apply row-start-2 flex flex-wrap items-center gap-1 max-w-full;
+}
+
+.pc-combo-box__chips:empty {
+  display: none;
+}
+
+.pc-combo-box__chip {
+  @apply inline-grid grid-cols-[minmax(0,1fr)_1.25rem] gap-1 items-center max-w-full rounded-default border border-outline bg-secondary text-content p-1.5 text-sm;
+}
+
+.pc-combo-box__chip-label {
+  @apply min-w-0 truncate;
+}
+
+.pc-combo-box__chip-remove {
+  @apply size-5 grid place-items-center text-error cursor-pointer opacity-0 pointer-events-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand;
+}
+
+.pc-combo-box__chip:hover .pc-combo-box__chip-remove,
+.pc-combo-box__chip-remove:focus-visible {
+  @apply opacity-100 pointer-events-auto;
+}
+
+.input-combobox-error .pc-combo-box__control:not(:has([data-pc-combo-chips])),
+.input-combobox-error .pc-combo-box__control:has([data-pc-combo-chips]) .pc-combo-box__input,
+.input-combobox-error .pc-combo-box__trigger {
+  @apply border-error focus-within:border-error focus-within:ring-error focus-visible:border-error focus-visible:ring-error;
+}
+
+.pc-combo-box__error {
+  @apply mt-1 text-sm text-error;
+}
+
+.input-text-wrapper .pc-combo-box__control,
+.input-text-wrapper .pc-combo-box__trigger {
+  @apply border-0 rounded-none ring-0 p-0;
+}
+
+.input-text-wrapper .pc-combo-box__input {
+  @apply px-0 focus-visible:underline;
+}
+
+.input-text-wrapper .pc-combo-box__control:has([data-pc-combo-chips]) .pc-combo-box__input {
+  @apply border-0 rounded-none ring-0 pl-0 pr-7;
+}
+
+.input-text-wrapper .pc-combo-box__control:has([data-pc-combo-chips]) .pc-combo-box__content::after {
+  @apply mr-0;
+}
+
+.input-text-label .pc-combo-box__control,
+.input-text-label .pc-combo-box__trigger {
+  @apply min-h-6;
+}
+
+.input-text-label .pc-combo-box__input {
+  @apply py-1;
+}
+
+.input-text-label .pc-combo-box__control:has([data-pc-combo-chips]) .pc-combo-box__input {
+  @apply min-h-6 py-1;
+}
+
+.input-text-wrapper .pc-combo-box__chevron,
+.input-text-wrapper .pc-combo-box__content::after,
+.input-native-select[data-input-text]::picker-icon {
+  opacity: 0;
+}
+
+[data-core-input]:is(:hover, :has(:is(button, select):focus-visible)) .input-text-wrapper .pc-combo-box__chevron,
+[data-core-input]:is(:hover, :has(:is(button, select):focus-visible)) .input-text-wrapper .pc-combo-box__content::after,
+[data-core-input]:is(:hover, :has(:is(button, select):focus-visible)) .input-native-select[data-input-text]::picker-icon {
+  opacity: 1;
+}
+
+textarea[data-input-text] {
+  resize: none;
+}
+
+textarea[data-input-text]:is(:hover, :active) {
+  resize: both;
+}
+
+/* Native select controls */
+
+.input-native-select {
+  appearance: base-select;
+}
+
+.input-native-select:not([multiple]):not([size]),
+.input-native-select:not([multiple])[size="1"] {
+  @apply grid grid-cols-[minmax(0,1fr)_1.25rem] gap-1.5 items-center cursor-pointer;
+}
+
+.input-native-select.input-floating-control:open {
+  @apply border-brand ring-2 ring-brand;
+}
+
+.input-native-select-error.input-floating-control:open {
+  @apply border-error ring-error;
+}
+
+.input-native-select:disabled {
+  @apply cursor-not-allowed;
+}
+
+.input-native-select::picker-icon {
+  @apply hero-chevron-down-mini size-5 text-subcontent;
+  content: "";
+  margin: 0;
+}
+
+.input-native-select::picker(select) {
+  @apply rounded-default border border-outline bg-surface text-content shadow-lg overflow-y-auto;
+  appearance: base-select;
+  position-area: block-end span-inline-end;
+  position-try-fallbacks: flip-inline, flip-block, flip-block flip-inline;
+  inset: auto;
+  margin: 0.25rem 0;
+  padding: 0;
+  width: anchor-size(width);
+  max-width: calc(100vw - 1rem);
+  max-height: 15rem;
+}
+
+.input-native-select option {
+  @apply grid grid-cols-[minmax(0,1fr)_1.25rem] gap-2 items-center px-3 py-2 text-sm text-content cursor-pointer select-none;
+}
+
+.input-native-select[data-cinder-page-size]:not([multiple]) {
+  min-inline-size: 0;
+  grid-template-columns: minmax(0, 1fr);
+  column-gap: 0;
+}
+
+[data-cinder-page-size]::picker-icon {
+  display: none;
+}
+
+[data-cinder-page-size]::picker(select) {
+  min-width: 6rem;
+}
+
+.input-native-select option:enabled:hover,
+.input-native-select option:enabled:focus,
+.input-native-select option:checked {
+  @apply option-surface;
+}
+
+.input-native-select option:checked {
+  @apply font-semibold;
+}
+
+.input-native-select option:disabled {
+  @apply text-subcontent cursor-not-allowed;
+}
+
+.input-native-select option::checkmark {
+  @apply hero-check-mini size-4 invisible;
+  content: "";
+  grid-column: 2;
+  grid-row: 1;
+  justify-self: center;
+  margin: 0;
+}
+
+.input-native-select option:checked::checkmark {
+  @apply visible;
+}
+
+/* Search clear controls */
+
+input[type="search"]::-webkit-search-cancel-button {
+  display: none;
+}
+
+/* File controls and previews */
+
+[data-file-control] .input-floating-label {
+  left: 2.5rem;
+}
+
+[data-file-control]:focus-within .input-floating-label,
+:is([data-file-has-value="true"], [data-file-editable-like="false"], :where([data-file-has-placeholder="true"][data-file-editable-like="true"])) [data-file-control] .input-floating-label {
+  left: 0.75rem;
+}
+
+input[type="file"],
+[data-file-display] {
+  background-image: url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 24 24' stroke-width='1.5' stroke='%236b7280'%3e%3cpath stroke-linecap='round' stroke-linejoin='round' d='M3 16.5v2.25A2.25 2.25 0 0 0 5.25 21h13.5A2.25 2.25 0 0 0 21 18.75V16.5M16.5 12 12 7.5m0 0L7.5 12m4.5-4.5v13.5'/%3e%3c/svg%3e");
+  background-position: left 0.75rem center;
+  background-repeat: no-repeat;
+  background-size: 1.25rem 1.25rem;
+  background-origin: border-box;
+  padding-left: 2.5rem;
+}
+
+.input-floating-control[type="file"],
+.input-floating-control[data-file-display] {
+  padding-block: calc(0.75rem - 1px);
+}
+
+input[type="file"]::file-selector-button {
+  display: none;
+}
+
+[data-file-preview-outlet]:not(:has([data-file-collection]:not([hidden]) [data-file-item]:not([hidden]), [data-file-collection]:not([hidden]) [data-file-preview-container]:not([hidden]))) {
+  display: none;
+}
+
+[data-file-collection][data-file-detached="true"] [data-file-item]:not([hidden]):has(> [data-file-preview-as="thumbnail"]) {
+  display: grid;
+  grid-template-rows: minmax(0, 1fr) auto;
+  height: 100%;
+  min-height: 0;
+}
+
+[data-file-collection][data-file-detached="true"] [data-file-preview-as="thumbnail"] {
+  height: 100%;
+  min-height: 0;
+  width: 100%;
+}
+
+[data-file-collection][data-file-focused="true"][data-file-mode="text"] label,
+[data-file-collection][data-file-focused="true"][data-file-mode="text-enabled"] label {
+  text-decoration-line: underline;
+}
+
+[data-file-cycle],
+[data-file-edit],
+[data-file-caption] {
+  @apply opacity-0 pointer-events-none transition-opacity;
+}
+
+[data-file-cycle] {
+  @apply absolute top-1/2 z-20 -translate-y-1/2;
+}
+
+[data-file-cycle]:focus {
+  @apply ring-0;
+}
+
+[data-file-caption] {
+  @apply absolute top-1 left-1 right-8 z-10 w-fit truncate rounded-default bg-primary px-1 text-sm text-content;
+  max-width: calc(100% - 2.25rem);
+}
+
+[data-file-edit] {
+  @apply absolute bottom-1 left-1/2 -translate-x-1/2;
+}
+
+[data-file-collection]:hover [data-file-cycle]:not(:disabled),
+[data-file-collection]:focus-within [data-file-cycle]:not(:disabled),
+[data-file-item]:hover [data-file-edit]:not(:disabled),
+[data-file-item]:focus-within [data-file-edit]:not(:disabled),
+[data-file-preview-container]:hover [data-file-edit]:not(:disabled),
+[data-file-preview-container]:focus-within [data-file-edit]:not(:disabled) {
+  @apply opacity-100 pointer-events-auto;
+}
+
+[data-file-collection]:hover [data-file-caption],
+[data-file-collection]:focus-within [data-file-caption] {
+  @apply opacity-100;
+}
+
+[data-file-collection]:has(> [data-file-preview-position]) [data-file-preview-as="tag"] {
+  @apply pb-8;
+}
+
+[data-file-collection]:has(> [data-file-preview-position]):has([data-file-preview-as="tag"]) [data-file-cycle] {
+  @apply top-4;
+}
+
+[data-file-preview-as="tag"]:has(> [data-file-edit]),
+[data-file-preview-container][data-file-preview-as="tag"]:has([data-file-edit]:not([hidden])),
+[data-file-collection]:has(> [data-file-preview-position]) [data-file-preview-as="tag"]:has([data-file-edit]:not([hidden])) {
+  @apply pb-9;
+}
+
+/* Calendar controls */
+
+[data-vc=calendar] {
+  border-radius: var(--radius-default);
+}
+[data-vc=calendar] [tabindex="0"]:focus-visible,
+[data-vc=calendar] button:focus-visible {
+  border-radius: var(--radius-default);
+}
+[data-vc=calendar]:focus-visible {
+  border-radius: var(--radius-default);
+}
+[data-vc=calendar] [data-vc-date-popup],
+[data-vc=calendar] [data-vc-date-range-tooltip] {
+  border-radius: var(--radius-default);
+}
+[data-vc=calendar] [data-vc=collapse]::before {
+  border-radius: var(--radius-full);
+}
+@media (hover: hover) and (pointer: fine) {
+  [data-vc=calendar] [data-vc=collapse]::before {
+    border-radius: 0;
+  }
+}
+[data-calendar-popover][data-vc=calendar] {
+  @apply rounded-default border border-outline bg-surface text-content shadow-lg;
+  position-try-fallbacks: flip-inline;
+  width: max(anchor-size(width), 17.5rem);
+  min-width: 0;
+  overflow-y: auto;
+}
+
+[data-calendar-popover][data-vc=calendar][data-flip] {
+  position-area: block-start span-inline-end;
+}
+
+[data-calendar-popover]:not(:popover-open) {
+  display: none;
+}
+
+[data-vc=calendar][data-vc-mode=time] [data-vc=header],
+[data-vc=calendar][data-vc-mode=time] [data-vc=wrapper],
+[data-vc=calendar][data-vc-mode=time] [data-vc=controls] {
+  display: none !important;
+}
+[data-vc=calendar][data-vc-mode=time] {
+  min-width: 0;
+  padding: 0.5rem;
+}
+
+[data-calendar-popover][data-vc-mode=time] {
+  width: anchor-size(width);
+}
+
+/* Calendar navigation */
+
+[data-vc=calendar][data-vc-theme] [data-vc-arrow] {
+  color: var(--color-content);
+  border-radius: var(--radius-default);
+}
+[data-vc=calendar][data-vc-theme] [data-vc-arrow]::before {
+  @apply hero-chevron-down-micro size-full;
+  background-image: none;
+}
+[data-vc=calendar][data-vc-theme] [data-vc-arrow]:hover {
+  @apply overlay-dark;
+}
+
+[data-vc=calendar][data-vc-theme] [data-vc=month],
+[data-vc=calendar][data-vc-theme] [data-vc=year] {
+  color: var(--color-content);
+  background-color: transparent;
+  border-radius: var(--radius-default);
+  padding: 0.125rem 0.375rem;
+}
+[data-vc=calendar][data-vc-theme] [data-vc=month]:hover,
+[data-vc=calendar][data-vc-theme] [data-vc=year]:hover {
+  @apply overlay-dark;
+}
+
+/* Calendar weekdays and dates */
+
+[data-vc=calendar][data-vc-theme] .vc-week__day {
+  color: var(--color-content);
+}
+[data-vc=calendar][data-vc-theme] [data-vc-week-day-off],
+[data-vc=calendar][data-vc-theme] .vc-week__day[data-vc-week-day-off] {
+  color: var(--color-brand);
+  font-weight: 600;
+}
+
+[data-vc=calendar][data-vc-theme] .vc-date__btn {
+  color: var(--color-content);
+  background-color: transparent;
+  border-radius: var(--radius-default);
+  transition: background-color 120ms ease, color 120ms ease;
+}
+[data-vc=calendar][data-vc-theme] [data-vc-date][data-vc-date-hover] [data-vc-date-btn],
+[data-vc=calendar][data-vc-theme] [data-vc-date][data-vc-date-selected=middle] [data-vc-date-btn] {
+  border-radius: 0;
+}
+[data-vc=calendar][data-vc-theme] [data-vc-date][data-vc-date-hover=first] [data-vc-date-btn],
+[data-vc=calendar][data-vc-theme] [data-vc-date][data-vc-date-selected=first] [data-vc-date-btn] {
+  border-radius: var(--radius-default) 0 0 var(--radius-default);
+}
+[data-vc=calendar][data-vc-theme] [data-vc-date][data-vc-date-hover=last] [data-vc-date-btn],
+[data-vc=calendar][data-vc-theme] [data-vc-date][data-vc-date-selected=last] [data-vc-date-btn] {
+  border-radius: 0 var(--radius-default) var(--radius-default) 0;
+}
+[data-vc=calendar][data-vc-theme] [data-vc-date][data-vc-date-hover=first-and-last] [data-vc-date-btn],
+[data-vc=calendar][data-vc-theme] [data-vc-date][data-vc-date-selected=first-and-last] [data-vc-date-btn] {
+  border-radius: var(--radius-default);
+}
+[data-vc=calendar][data-vc-theme] [data-vc-date][data-vc-date-hover=first][data-vc-date-selected] [data-vc-date-btn],
+[data-vc=calendar][data-vc-theme] [data-vc-date][data-vc-date-disabled]+[data-vc-date-hover] [data-vc-date-btn],
+[data-vc=calendar][data-vc-theme] [data-vc-date][data-vc-date-disabled]+[data-vc-date-selected] [data-vc-date-btn] {
+  border-top-left-radius: var(--radius-default);
+  border-bottom-left-radius: var(--radius-default);
+}
+[data-vc=calendar][data-vc-theme] [data-vc-date][data-vc-date-hover=last][data-vc-date-selected] [data-vc-date-btn],
+[data-vc=calendar][data-vc-theme] [data-vc-date][data-vc-date-hover]:has(+[data-vc-date-disabled]) [data-vc-date-btn],
+[data-vc=calendar][data-vc-theme] [data-vc-date][data-vc-date-selected]:has(+[data-vc-date-disabled]) [data-vc-date-btn] {
+  border-top-right-radius: var(--radius-default);
+  border-bottom-right-radius: var(--radius-default);
+}
+[data-vc=calendar][data-vc-theme] .vc-date__btn:hover {
+  @apply overlay-dark;
+}
+[data-vc=calendar][data-vc-theme] [data-vc-date-weekend] .vc-date__btn {
+  color: var(--color-brand);
+}
+[data-vc=calendar][data-vc-theme] [data-vc-date-weekend] .vc-date__btn:hover {
+  @apply overlay-dark;
+}
+[data-vc=calendar][data-vc-theme] [data-vc-date-month=prev] .vc-date__btn,
+[data-vc=calendar][data-vc-theme] [data-vc-date-month=next] .vc-date__btn,
+[data-vc=calendar][data-vc-theme] [data-vc-date-weekend][data-vc-date-month=prev] .vc-date__btn,
+[data-vc=calendar][data-vc-theme] [data-vc-date-weekend][data-vc-date-month=next] .vc-date__btn {
+  background-color: transparent;
+  color: var(--color-subcontent);
+}
+[data-vc=calendar][data-vc-theme] .vc-date[data-vc-date-month=prev] .vc-date__btn:hover,
+[data-vc=calendar][data-vc-theme] .vc-date[data-vc-date-month=next] .vc-date__btn:hover,
+[data-vc=calendar][data-vc-theme] .vc-date[data-vc-date-weekend][data-vc-date-month=prev] .vc-date__btn:hover,
+[data-vc=calendar][data-vc-theme] .vc-date[data-vc-date-weekend][data-vc-date-month=next] .vc-date__btn:hover,
+[data-vc=calendar][data-vc-theme] .vc-date[data-vc-date-holiday][data-vc-date-month=prev] .vc-date__btn:hover,
+[data-vc=calendar][data-vc-theme] .vc-date[data-vc-date-holiday][data-vc-date-month=next] .vc-date__btn:hover,
+[data-vc=calendar][data-vc-theme] .vc-date[data-vc-date-month=prev][data-vc-date-hover] .vc-date__btn,
+[data-vc=calendar][data-vc-theme] .vc-date[data-vc-date-month=next][data-vc-date-hover] .vc-date__btn,
+[data-vc=calendar][data-vc-theme] .vc-date[data-vc-date-weekend][data-vc-date-month=prev][data-vc-date-hover] .vc-date__btn,
+[data-vc=calendar][data-vc-theme] .vc-date[data-vc-date-weekend][data-vc-date-month=next][data-vc-date-hover] .vc-date__btn {
+  @apply overlay-dark!;
+}
+[data-vc=calendar][data-vc-theme] [data-vc-date-today] .vc-date__btn {
+  background-color: transparent;
+  color: var(--color-brand);
+  outline: 1px solid var(--color-brand);
+  outline-offset: -1px;
+}
+[data-vc=calendar][data-vc-theme] .vc-date[data-vc-date-weekend][data-vc-date-today] .vc-date__btn,
+[data-vc=calendar][data-vc-theme] .vc-date[data-vc-date-holiday][data-vc-date-today] .vc-date__btn {
+  background-color: transparent !important;
+  color: var(--color-brand) !important;
+  outline: 1px solid var(--color-brand);
+  outline-offset: -1px;
+}
+[data-vc=calendar][data-vc-theme] .vc-date[data-vc-date-today] .vc-date__btn:hover,
+[data-vc=calendar][data-vc-theme] .vc-date[data-vc-date-today][data-vc-date-hover] .vc-date__btn,
+[data-vc=calendar][data-vc-theme] .vc-date[data-vc-date-weekend][data-vc-date-today] .vc-date__btn:hover,
+[data-vc=calendar][data-vc-theme] .vc-date[data-vc-date-holiday][data-vc-date-today] .vc-date__btn:hover {
+  @apply overlay-dark!;
+  color: var(--color-brand) !important;
+  outline: 1px solid var(--color-brand);
+  outline-offset: -1px;
+}
+[data-vc=calendar][data-vc-theme] [data-vc-date-disabled] .vc-date__btn {
+  opacity: 0.3;
+  cursor: not-allowed;
+}
+[data-vc=calendar][data-vc-theme] [data-vc-date-selected] .vc-date__btn,
+[data-vc=calendar][data-vc-theme] [data-vc-date-weekend][data-vc-date-selected] .vc-date__btn,
+[data-vc=calendar][data-vc-theme] [data-vc-date-selected] .vc-date__btn:hover,
+[data-vc=calendar][data-vc-theme] [data-vc-date-weekend][data-vc-date-selected] .vc-date__btn:hover {
+  @apply bg-brand text-content-inverse dark:text-content;
+}
+
+/* Calendar week selection */
+
+[data-vc=calendar][data-vc-theme] [data-vc-week-numbers=content] {
+  row-gap: 0;
+}
+[data-vc=calendar][data-vc-theme] [data-vc-week-numbers=title],
+[data-vc=calendar][data-vc-theme] [data-vc-week-number] {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--color-subcontent);
+  border-radius: var(--radius-default);
+}
+[data-vc=calendar][data-vc-theme] [data-vc-week-number] {
+  min-height: 2.125rem;
+  min-width: 2.125rem;
+}
+[data-vc=calendar][data-vc-theme] [data-vc-week-number]:hover {
+  @apply overlay-dark;
+  cursor: pointer;
+}
+[data-vc=calendar][data-vc-theme] [data-vc-week-number][data-vc-week-selected] {
+  @apply bg-brand text-content-inverse dark:text-content;
+}
+
+/* Calendar month and year selection */
+
+[data-vc=calendar][data-vc-theme] .vc-months__month,
+[data-vc=calendar][data-vc-theme] .vc-years__year,
+[data-vc=calendar][data-vc-theme] [data-vc-months-month],
+[data-vc=calendar][data-vc-theme] [data-vc-years-year] {
+  color: var(--color-content);
+  background-color: transparent;
+  border-radius: var(--radius-default);
+}
+[data-vc=calendar][data-vc-theme] .vc-months__month:hover,
+[data-vc=calendar][data-vc-theme] .vc-years__year:hover,
+[data-vc=calendar][data-vc-theme] [data-vc-months-month]:hover,
+[data-vc=calendar][data-vc-theme] [data-vc-years-year]:hover {
+  @apply overlay-dark;
+}
+[data-vc=calendar][data-vc-theme] [data-vc-months-month-selected],
+[data-vc=calendar][data-vc-theme] [data-vc-years-year-selected] {
+  @apply bg-brand text-content-inverse dark:text-content;
+}
+
+/* Calendar time controls */
+
+[data-vc=calendar][data-vc-theme] [data-vc=time],
+[data-vc=calendar][data-vc-theme] .vc-time {
+  color: var(--color-content);
+  border-color: var(--color-outline);
+}
+[data-vc=calendar][data-vc-theme][data-vc-mode=time] [data-vc=time] {
+  margin-top: 0;
+  border-top-width: 0;
+  padding-top: 0;
+}
+[data-vc=calendar][data-vc-theme] .vc-time__hour input,
+[data-vc=calendar][data-vc-theme] .vc-time__minute input {
+  background-color: transparent;
+  color: var(--color-content);
+  border: 1px solid var(--color-outline);
+  border-radius: var(--radius-default);
+}
+[data-vc=calendar][data-vc-theme] .vc-time__hour input:hover,
+[data-vc=calendar][data-vc-theme] .vc-time__minute input:hover {
+  @apply overlay-dark;
+}
+[data-vc=calendar][data-vc-theme] .vc-time__hour input:focus,
+[data-vc=calendar][data-vc-theme] .vc-time__minute input:focus,
+[data-vc=calendar][data-vc-theme] .vc-time__hour input:focus-visible,
+[data-vc=calendar][data-vc-theme] .vc-time__minute input:focus-visible,
+[data-vc=calendar][data-vc-theme] .vc-time__hour input[data-vc-input-focus],
+[data-vc=calendar][data-vc-theme] .vc-time__minute input[data-vc-input-focus] {
+  background-color: transparent;
+  outline: none;
+  border-color: var(--color-brand);
+}
+[data-vc=calendar][data-vc-theme] .vc-time__keeping {
+  background-color: transparent;
+  color: var(--color-content);
+  border: 1px solid var(--color-outline);
+  border-radius: var(--radius-default);
+}
+[data-vc=calendar][data-vc-theme] .vc-time__keeping:hover {
+  @apply overlay-dark;
+}
+[data-vc=calendar][data-vc-theme] .vc-time__range input {
+  background-color: transparent;
+  accent-color: var(--color-subcontent);
+}
+[data-vc=calendar][data-vc-theme] .vc-time__range:after,
+[data-vc=calendar][data-vc-theme] .vc-time__range:before {
+  @apply bg-subcontent;
+}
+[data-vc=calendar][data-vc-theme] .vc-time__range input::-webkit-slider-runnable-track {
+  @apply bg-subcontent;
+  border-radius: var(--radius-full);
+}
+[data-vc=calendar][data-vc-theme] .vc-time__range input::-moz-range-track {
+  @apply bg-subcontent;
+  border-radius: var(--radius-full);
+}
+[data-vc=calendar][data-vc-theme] .vc-time__range input::-webkit-slider-thumb {
+  @apply bg-primary border! border-outline!;
+  border-radius: var(--radius-default);
+  box-shadow: none !important;
+}
+[data-vc=calendar][data-vc-theme] .vc-time__range input::-moz-range-thumb {
+  @apply bg-primary border! border-outline!;
+  border-radius: var(--radius-default);
+  box-shadow: none !important;
+}
+[data-vc=calendar][data-vc-theme] .vc-time__range input:focus-visible,
+[data-vc=calendar][data-vc-theme] .vc-time__range input:focus,
+[data-vc=calendar][data-vc-theme] .vc-time__range input:active {
+  accent-color: var(--color-brand);
+}
+[data-vc=calendar][data-vc-theme] .vc-time__range:has(input:focus-visible):after,
+[data-vc=calendar][data-vc-theme] .vc-time__range:has(input:focus-visible):before,
+[data-vc=calendar][data-vc-theme] .vc-time__range:has(input:focus):after,
+[data-vc=calendar][data-vc-theme] .vc-time__range:has(input:focus):before,
+[data-vc=calendar][data-vc-theme] .vc-time__range:has(input:active):after,
+[data-vc=calendar][data-vc-theme] .vc-time__range:has(input:active):before {
+  @apply bg-brand;
+}
+[data-vc=calendar][data-vc-theme] .vc-time__range input:focus-visible::-webkit-slider-runnable-track,
+[data-vc=calendar][data-vc-theme] .vc-time__range input:focus::-webkit-slider-runnable-track,
+[data-vc=calendar][data-vc-theme] .vc-time__range input:active::-webkit-slider-runnable-track {
+  @apply bg-brand;
+}
+[data-vc=calendar][data-vc-theme] .vc-time__range input:focus-visible::-moz-range-track,
+[data-vc=calendar][data-vc-theme] .vc-time__range input:focus::-moz-range-track,
+[data-vc=calendar][data-vc-theme] .vc-time__range input:active::-moz-range-track {
+  @apply bg-brand;
+}
+[data-vc=calendar][data-vc-theme] .vc-time__range input:focus-visible::-webkit-slider-thumb,
+[data-vc=calendar][data-vc-theme] .vc-time__range input:focus::-webkit-slider-thumb,
+[data-vc=calendar][data-vc-theme] .vc-time__range input:active::-webkit-slider-thumb {
+  border: 1px solid var(--color-brand) !important;
+  box-shadow: none !important;
+}
+[data-vc=calendar][data-vc-theme] .vc-time__range input:focus-visible::-moz-range-thumb,
+[data-vc=calendar][data-vc-theme] .vc-time__range input:focus::-moz-range-thumb,
+[data-vc=calendar][data-vc-theme] .vc-time__range input:active::-moz-range-thumb {
+  border: 1px solid var(--color-brand) !important;
+  box-shadow: none !important;
+}
+
+[data-vc=calendar][data-vc-theme] .vc-time__range:hover:after,
+[data-vc=calendar][data-vc-theme] .vc-time__range:hover:before {
+  @apply overlay-dark;
+}
+[data-vc=calendar][data-vc-theme] .vc-time__range:hover input::-webkit-slider-runnable-track {
+  @apply overlay-dark;
+}
+[data-vc=calendar][data-vc-theme] .vc-time__range:hover input::-moz-range-track {
+  @apply overlay-dark;
+}
+[data-vc=calendar][data-vc-theme] .vc-time__range:hover input::-webkit-slider-thumb {
+  @apply overlay-dark!;
+}
+[data-vc=calendar][data-vc-theme] .vc-time__range:hover input::-moz-range-thumb {
+  @apply overlay-dark!;
+}
+
+/* Color picker controls */
+
+.color-input-swatch {
+  background-image: linear-gradient(var(--input-color, transparent), var(--input-color, transparent)), conic-gradient(var(--color-outline) 25%, var(--color-primary) 0 50%, var(--color-outline) 0 75%, var(--color-primary) 0);
+  background-size: 100% 100%, 0.5rem 0.5rem;
+}
+
+.color-input-popover rgba-color-picker::part(saturation) {
+  border-bottom: 0;
+  border-radius: var(--radius-default) var(--radius-default) 0 0;
+}
+
+.color-input-popover rgba-color-picker::part(alpha) {
+  border-radius: 0 0 var(--radius-default) var(--radius-default);
+}
+
+.color-input-popover rgba-color-picker::part(alpha),
+.color-input-popover rgba-color-picker::part(alpha-pointer) {
+  background-color: var(--color-primary);
+  background-image: conic-gradient(var(--color-outline) 25%, var(--color-primary) 0 50%, var(--color-outline) 0 75%, var(--color-primary) 0);
+  background-size: 0.5rem 0.5rem;
+}
+
+.color-input-popover rgba-color-picker::part(saturation-pointer),
+.color-input-popover rgba-color-picker::part(hue-pointer),
+.color-input-popover rgba-color-picker::part(alpha-pointer) {
+  width: 1.25rem;
+  height: 1.25rem;
+  border-color: var(--color-content);
+  box-shadow: 0 0 0 1px var(--color-outline);
+}
+
+.color-input-popover rgba-color-picker::part(saturation):focus,
+.color-input-popover rgba-color-picker::part(hue):focus,
+.color-input-popover rgba-color-picker::part(alpha):focus {
+  outline: 2px solid var(--color-brand);
+  outline-offset: 2px;
+}
+
+.color-input-label {
+  left: 2.75rem;
+}
+
+.color-input-control:focus-within + .color-input-label,
+.color-input-control:has(.input-floating-control:not([type="file"]):not([data-file-display]):not(select):not(:placeholder-shown):not([data-input-empty="true"])) + .color-input-label,
+.color-input-label-filled {
+  left: 0.75rem;
+  top: 0;
+  color: var(--color-brand);
+  font-size: 0.75rem;
+  line-height: 1rem;
+  opacity: 1;
+}
+
+.color-input-label-filled::before {
+  opacity: 1;
+}
+
+/* Input validation overrides */
+
+.input-floating-label-error,
+:focus-within > .input-floating-label-error,
+.color-input-control:focus-within + .input-floating-label-error,
+.input-floating-control:focus + .input-floating-label-error,
+.input-floating-control:not([type="file"]):not([data-file-display]):not(select):not(:placeholder-shown):not([data-input-empty="true"]) + .input-floating-label-error,
+.input-floating-wrapper:has(.input-floating-control:focus) + .input-floating-label-error,
+.input-floating-wrapper:has(.input-floating-control:not([type="file"]):not([data-file-display]):not(select):not(:placeholder-shown):not([data-input-empty="true"])) + .input-floating-label-error,
+*:has(> .input-floating-wrapper .input-floating-control:focus) + .input-floating-label-error,
+*:has(> .input-floating-wrapper .input-floating-control:not([type="file"]):not([data-file-display]):not(select):not(:placeholder-shown):not([data-input-empty="true"])) + .input-floating-label-error,
+.pc-combo-box.input-floating-wrapper:has(.pc-combo-box__input:disabled) + .input-floating-label-error,
+*:has(> .core-selection-input.input-floating-wrapper:focus-within) + .input-floating-label-error,
+*:has(> .core-selection-input.input-floating-wrapper[data-has-value]) + .input-floating-label-error,
+*:has(> .core-selection-input.input-floating-wrapper .pc-combo-box__select:disabled) + .input-floating-label-error,
+.input-native-select:is(:disabled, [readonly]) + .input-floating-label-error,
+.input-native-select:has(option:checked:not([value=""])) + .input-floating-label-error,
+[data-file-control]:focus-within .input-floating-label-error,
+:is([data-file-has-value="true"], [data-file-editable-like="false"], :where([data-file-has-placeholder="true"][data-file-editable-like="true"])) [data-file-control] .input-floating-label-error {
+  color: var(--color-error);
+}
+
+/* Disabled input overrides */
+
+:where([data-core-input]:not([data-file-mode="like-enabled"]):has(:is(input:not([type="hidden"]), select, textarea):disabled):not(:has(:is(input:not([type="hidden"]), select, textarea):enabled))),
+:where([data-core-input]:has(span.input-floating-control:is([disabled], [readonly]), span.pc-combo-box__input[disabled])),
+:where([data-core-input]:has(.core-selection-input[data-input-disabled="true"])) {
+  & .input-floating-label.input-floating-label {
+    top: 0;
+    color: var(--color-brand);
+    font-size: 0.75rem;
+    line-height: 1rem;
+    opacity: 1;
+  }
+
+  & .input-floating-label::before {
+    opacity: 1;
+  }
+
+  & .input-floating-textarea {
+    padding-top: 1rem;
+  }
+
+  & .input-floating-textarea[data-input-rows] {
+    min-height: calc(var(--input-rows) * 1.25rem + 1.5rem + 2px);
+  }
+
+  & .input-floating-textarea + .input-floating-label {
+    transform: translateY(-50%);
+  }
+
+  & .color-input-label,
+  & [data-file-control] .input-floating-label.input-floating-label {
+    left: 0.75rem;
+  }
+
+  & .input-floating-label-error.input-floating-label-error {
+    color: var(--color-error);
+  }
+}
+
+:where([data-core-input]:not([data-file-mode="like-enabled"]):has(:is(input:not([type="hidden"]), select, textarea):disabled):not(:has(:is(input:not([type="hidden"]), select, textarea):enabled))),
+:where([data-core-input]:has(span.input-floating-control[disabled])),
+:where([data-core-input]:has(span.pc-combo-box__input[disabled]):not(:has(span.input-floating-control:not([disabled])))) {
+  & .input-required,
+  & :is([data-color-popover], [data-calendar-popover]) {
+    display: none;
+  }
+
+  & :is(input, textarea)::placeholder {
+    opacity: 0;
+  }
+
+  & .input-native-select:has(option:checked[value=""]) {
+    color: transparent;
+  }
+
+  & :is(.number-input-control, .color-input-control, [data-file-control]) {
+    @apply overlay-dark;
+    color: var(--color-subcontent);
+    cursor: not-allowed;
+  }
+
+  & [data-boolean-text]:not(.text-error),
+  & > legend {
+    color: var(--color-subcontent);
+  }
+
+  & [data-boolean-text],
+  & > legend {
+    cursor: not-allowed;
+  }
+
+  &[data-file-has-value="false"] :is([data-file-name], [data-file-readonly-name], input[type="file"]) {
+    color: transparent;
+  }
+}
+
+/* Historical field changes */
+
+[data-audit-side="current"],
+:is(label, .input-floating-wrapper, .number-input-control):has([data-audit-side="current"]),
+.input-floating-control[data-audit-side="current"] + .input-floating-label,
+.input-floating-wrapper:has(.input-floating-control[data-audit-side="current"]) + .input-floating-label,
+label:has(+ .number-input-control [data-audit-side="current"]),
+:is(label, span):has(+ [data-audit-side="current"]) {
+  --audit-field-color: var(--color-success);
+}
+
+[data-audit-changed="true"],
+[data-audit-changed="true"] :is(input, textarea, select),
+.input-floating-wrapper:has([data-audit-changed="true"]),
+.number-input-control:has([data-audit-changed="true"]) {
+  color: var(--audit-field-color, var(--color-error));
+  border-color: var(--audit-field-color, var(--color-error));
+}
+
+[data-audit-changed="true"]:disabled,
+[data-audit-changed="true"] :is(input, textarea, select):disabled {
+  color: var(--audit-field-color, var(--color-error));
+}
+
+[data-audit-changed="true"]::placeholder,
+[data-audit-changed="true"] :is(input, textarea)::placeholder {
+  color: var(--audit-field-color, var(--color-error));
+}
+
+.input-floating-control[data-audit-changed="true"] + .input-floating-label,
+.input-floating-wrapper:has(.input-floating-control[data-audit-changed="true"]) + .input-floating-label,
+[data-audit-changed="true"] .input-floating-control + .input-floating-label,
+label:has(> [data-audit-changed="true"]) > span,
+label:has(+ .number-input-control [data-audit-changed="true"]),
+:is(label, span):has(+ [data-audit-changed="true"]) {
+  color: var(--audit-field-color, var(--color-error));
+}

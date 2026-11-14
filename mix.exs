@@ -1,0 +1,229 @@
+defmodule OpenQR.MixProject do
+  use Mix.Project
+
+  @version "0.0.1"
+
+  def project do
+    [
+      app: :openqr,
+      version: @version,
+      elixir: ">= 1.18.0",
+      elixirc_paths: elixirc_paths(Mix.env()),
+      start_permanent: Mix.env() == :prod,
+      aliases: aliases(),
+      deps: deps(),
+      compilers: [:phoenix_live_view] ++ Mix.compilers(),
+      listeners: [Phoenix.CodeReloader],
+      consolidate_protocols: Mix.env() != :dev,
+      dialyzer: [
+        plt_core_path: "priv/plts/core.plt",
+        plt_file: {:no_warn, "priv/plts/project.plt"},
+        list_unused_filters: true,
+        plt_add_apps: [:ex_unit]
+      ],
+      releases: releases(),
+      docs: [
+        output: "doc/v#{@version}"
+        # filter_modules: regex
+      ],
+      usage_rules: usage_rules()
+    ]
+  end
+
+  def releases do
+    [
+      openqr: [
+        burrito: [
+          targets: [
+            macos: [os: :darwin, cpu: :x86_64],
+            linux: [os: :linux, cpu: :x86_64],
+            windows: [os: :windows, cpu: :x86_64]
+          ]
+        ],
+        applications: [openqr: :permanent],
+        steps: [:assemble, &Burrito.wrap/1]
+      ]
+    ]
+  end
+
+  defp usage_rules do
+    baseline_skills = ["implementation-guidelines"]
+
+    [
+      file: "CLAUDE.md",
+      usage_rules: ["usage_rules:all" | baseline_skills],
+      skills: [
+        location: ".claude/skills",
+        build: [
+          "implementation-guidelines": [
+            description:
+              "Use this skill for any implementation task in this codebase. Consult it before adding new code, changing behavior, refactoring, or integrating dependencies. It defines baseline implementation conventions that apply across all frameworks, libraries, plugins, packages, and internal modules.",
+            usage_rules: [~r/^[a-z0-9_]+$/]
+          ],
+          "ash-framework": [
+            description:
+              "Use this skill when working with Ash Framework or any of its extensions. Always consult it when making domain changes, adding features, or fixing issues.",
+            usage_rules: baseline_skills ++ [:ash, ~r/^ash_/]
+          ],
+          "phoenix-framework": [
+            description:
+              "Use this skill when working with Phoenix Framework. Consult it when working with the web layer, including controllers, views, and LiveViews.",
+            usage_rules: baseline_skills ++ [:phoenix, ~r/^phoenix_/]
+          ]
+        ]
+      ]
+    ]
+  end
+
+  # Configuration for the OTP application.
+  #
+  # Type `mix help compile.app` for more information.
+  def application do
+    [
+      mod: {OpenQR.Application, []},
+      extra_applications: [:logger, :runtime_tools, :os_mon]
+    ]
+  end
+
+  def cli do
+    [
+      preferred_envs: [precommit: :test]
+    ]
+  end
+
+  # Specifies which paths to compile per environment.
+  defp elixirc_paths(:test), do: ["lib", "test/support"]
+  defp elixirc_paths(_), do: ["lib"]
+
+  # Specifies your project dependencies.
+  #
+  # Type `mix help deps` for examples and options.
+  defp deps do
+    [
+      {:openqr_engine, path: "../openqr/bindings/elixir"},
+      {:ash, ">= 3.37.2"},
+      {:ash_admin, ">= 1.4.0"},
+      {:ash_archival, ">= 2.0.5"},
+      {:ash_authentication, ">= 4.15.0"},
+      {:ash_authentication_phoenix, ">= 2.17.4"},
+      {:ash_cloak, ">= 0.5.0"},
+      {:ash_double_entry, ">= 1.1.1"},
+      {:ash_events, ">= 0.8.2"},
+      {:ash_json_api, ">= 1.8.0"},
+      {:ash_money, ">= 0.2.7"},
+      {:ash_paper_trail, ">= 0.8.1"},
+      {:ash_phoenix, ">= 2.3.26"},
+      {:ash_postgres, ">= 2.15.2"},
+      {:ash_state_machine, ">= 0.3.0"},
+      {:ash_typescript, ">= 0.19.3"},
+      {:bandit, ">= 1.14.0"},
+      {:bcrypt_elixir, ">= 3.3.2"},
+      {:burrito, ">= 1.6.0"},
+      {:chromic_pdf, ">= 1.17.2"},
+      {:cinder, ">= 0.17.0"},
+      {:cloak, ">= 1.1.4"},
+      {:color, ">= 0.13.0"},
+      {:dialyxir, ">= 1.4.8", only: [:dev, :test], runtime: false},
+      {:dns_cluster, ">= 0.3.1"},
+      {:ecto_sql, ">= 3.14.0"},
+      {:esbuild, ">= 0.10.1", runtime: Mix.env() == :dev},
+      {:ex_cldr, ">= 2.47.5"},
+      {:ex_cldr_calendars, ">= 2.4.3"},
+      {:ex_cldr_calendars_format, ">= 1.0.1"},
+      {:ex_cldr_collation, ">= 1.1.0", override: true},
+      {:ex_cldr_currencies, ">= 2.17.2"},
+      {:ex_cldr_dates_times, ">= 2.25.6"},
+      {:ex_cldr_languages, ">= 0.3.3"},
+      {:ex_cldr_lists, ">= 2.12.2"},
+      {:ex_cldr_locale_display, ">= 1.7.3"},
+      {:ex_cldr_numbers, ">= 2.38.3"},
+      {:ex_cldr_person_names, ">= 1.1.1"},
+      {:ex_cldr_plugs, ">= 1.4.0"},
+      {:ex_cldr_print, ">= 1.0.1"},
+      {:ex_cldr_routes, ">= 1.6.0"},
+      {:ex_cldr_territories, ">= 2.12.0"},
+      {:ex_cldr_units, ">= 3.20.4"},
+      {:ex_doc, ">= 0.40.4"},
+      {:ex_json_schema, ">= 0.11.5"},
+      {:ex_money_sql, ">= 2.1.0"},
+      {:faker, ">= 0.19.0", only: [:dev]},
+      {:finch, ">= 0.24.0"},
+      {:floki, ">= 0.38.4"},
+      {:gen_smtp, ">= 1.3.0"},
+      {:gettext, ">= 1.0.2"},
+      {:heroicons,
+       github: "tailwindlabs/heroicons", sparse: "optimized", app: false, compile: false, depth: 1},
+      {:igniter, ">= 0.8.5", only: [:dev, :test]},
+      {:jason, ">= 1.4.5"},
+      {:lazy_html, ">= 0.1.13", only: :test},
+      {:live_debugger, ">= 1.0.3", only: :dev},
+      {:manifold, ">= 1.7.0"},
+      {:memory_size, ">= 0.1.0"},
+      {:open_api_spex, ">= 3.22.4"},
+      {:petal_components, ">= 4.17.1"},
+      {:phoenix, ">= 1.8.16"},
+      {:phoenix_ecto, ">= 4.7.0"},
+      {:phoenix_html, ">= 4.3.0"},
+      {:phoenix_live_dashboard, ">= 0.9.1"},
+      {:phoenix_live_reload, ">= 1.7.0", only: :dev},
+      {:phoenix_live_view, ">= 1.2.13"},
+      {:phoenix_pubsub, ">= 2.4.1"},
+      {:picosat_elixir, ">= 0.2.3"},
+      {:plug, ">= 1.20.3"},
+      {:postgrex, ">= 0.22.4"},
+      {:qr_code, ">= 3.2.0"},
+      {:quantum, ">= 3.5.3"},
+      {:req, ">= 0.7.5"},
+      {:scalar_api_plug, ">= 0.3.0"},
+      {:sobelow, ">= 0.16.0", only: [:dev, :test], runtime: false},
+      {:sourceror, ">= 1.13.0", only: [:dev, :test]},
+      {:spreadsheet, ">= 0.7.1"},
+      {:styler, ">= 1.12.2", only: [:dev, :test], runtime: false},
+      {:swoosh, ">= 1.29.0"},
+      {:tabler_icons,
+       github: "tabler/tabler-icons", sparse: "icons", app: false, compile: false, depth: 1},
+      {:tailwind, ">= 0.5.2", runtime: Mix.env() == :dev},
+      {:telemetry_metrics, ">= 1.2.0"},
+      {:telemetry_poller, ">= 1.3.0"},
+      {:tesla, ">= 1.22.0"},
+      {:tz, ">= 0.28.4"},
+      {:tzdata, ">= 1.2.2"},
+      {:usage_rules, ">= 1.3.0", only: [:dev]},
+      {:xlsx_writer, ">= 0.11.0"}
+    ]
+  end
+
+  # Aliases are shortcuts or tasks specific to the current project.
+  # For example, to install project dependencies and perform other setup tasks, run:
+  #
+  #     $ mix setup
+  #
+  # See the documentation for `Mix` for more info on aliases.
+  defp aliases do
+    [
+      setup: ["deps.get", "ash.setup", "assets.setup", "assets.build", "run priv/repo/seeds.exs"],
+      "ecto.setup": ["ecto.create", "ecto.migrate", "run priv/repo/seeds.exs"],
+      "ecto.reset": ["ecto.drop", "ecto.setup"],
+      test: ["ash.setup --quiet", "test"],
+      "assets.setup": [
+        "tailwind.install --if-missing",
+        "esbuild.install --if-missing",
+        "cmd --cd assets --shell npm install"
+      ],
+      "assets.build": ["compile", "tailwind openqr", "esbuild openqr"],
+      "assets.deploy": [
+        "tailwind openqr --minify",
+        "esbuild openqr --minify",
+        "phx.digest"
+      ],
+      precommit: [
+        "compile --warnings-as-errors",
+        "deps.unlock --unused",
+        "ash.codegen --check",
+        "format",
+        "test",
+        "dialyzer"
+      ]
+    ]
+  end
+end
