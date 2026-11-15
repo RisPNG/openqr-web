@@ -129,8 +129,7 @@ defmodule OpenQRWeb.Dashboard.LayoutTestLive.EcosystemControlsTest do
     pages = [
       {"scalar", "/api/json/scalar"},
       {"dashboard", "/dashboard/dev/dashboard"},
-      {"mailbox", "/dashboard/dev/mailbox"},
-      {"ash-admin", "/dashboard/admin"}
+      {"mailbox", "/dashboard/dev/mailbox"}
     ]
 
     for {id, path} <- pages do

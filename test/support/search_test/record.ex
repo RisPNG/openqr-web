@@ -1,12 +1,5 @@
 defmodule OpenQR.SearchTest.Record do
-  use Ash.Resource,
-    domain: OpenQR.SearchTest.Domain,
-    data_layer: AshPostgres.DataLayer
-
-  postgres do
-    table "search_test_records"
-    repo OpenQR.Repo
-  end
+  use Ash.Resource, data_layer: :embedded
 
   actions do
     defaults [:read]
@@ -28,8 +21,7 @@ defmodule OpenQR.SearchTest.Record do
         :active,
         :meta,
         :code,
-        :tags,
-        :category_id
+        :tags
       ]
     end
   end
@@ -53,13 +45,5 @@ defmodule OpenQR.SearchTest.Record do
     attribute :tags, {:array, :string}
 
     timestamps()
-  end
-
-  relationships do
-    belongs_to :category, OpenQR.SearchTest.Category do
-      allow_nil? false
-      attribute_type :integer
-      attribute_writable? true
-    end
   end
 end

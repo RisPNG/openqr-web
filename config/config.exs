@@ -7,10 +7,6 @@ import Config
 
 config :elixir, :time_zone_database, Tz.TimeZoneDatabase
 
-config :openqr, OpenQR.Repo,
-  telemetry_prefix: [:openqr, :repo],
-  parameters: [timezone: "UTC"]
-
 config :openqr,
   upload_directory: Path.expand("../var/uploads/public", __DIR__)
 
@@ -59,23 +55,13 @@ config :ash,
   read_action_after_action_hooks_in_order?: true,
   bulk_actions_default_to_errors?: true,
   transaction_rollback_on_error?: true,
-  redact_sensitive_values_in_errors?: true,
-  known_types: [AshPostgres.Timestamptz, AshPostgres.TimestamptzUsec, AshMoney.Types.Money],
-  custom_types: [money: AshMoney.Types.Money]
+  redact_sensitive_values_in_errors?: true
 
 config :spark,
   formatter: [
     remove_parens?: true,
     "Ash.Resource": [
       section_order: [
-        :account,
-        :balance,
-        :transfer,
-        :admin,
-        :authentication,
-        :token,
-        :user_identity,
-        :postgres,
         :json_api,
         :resource,
         :code_interface,
@@ -95,7 +81,6 @@ config :spark,
     ],
     "Ash.Domain": [
       section_order: [
-        :admin,
         :json_api,
         :resources,
         :policies,
@@ -107,20 +92,8 @@ config :spark,
   ]
 
 config :openqr,
-  ecto_repos: [OpenQR.Repo],
   generators: [timestamp_type: :utc_datetime],
-  ash_domains: [
-    OpenQR.Ledgers.LedgerService,
-    OpenQR.Users.UserService,
-    OpenQR.Addresses.AddressService,
-    OpenQR.ApiKeys.ApiKeyService,
-    OpenQR.Tokens.TokenService,
-    OpenQR.Events.EventService,
-    OpenQR.AccessControl.AccessControlService,
-    OpenQR.Organizations.OrganizationService,
-    OpenQR.NumberSequences.NumberSequenceService
-  ],
-  ash_authentication: [return_error_on_invalid_magic_link_token?: true]
+  ash_domains: []
 
 # Configure the endpoint
 config :openqr, OpenQRWeb.Endpoint,
@@ -178,6 +151,12 @@ config :logger, :default_formatter,
 
 # Use Jason for JSON parsing in Phoenix
 config :phoenix, :json_library, Jason
+
+config :phoenix_ecto,
+  exclude_ecto_exceptions_from_plug: [
+    Phoenix.Ecto.PendingMigrationError,
+    Phoenix.Ecto.StorageNotCreatedError
+  ]
 
 # Import environment specific config. This must remain at the bottom of this file so it overrides the configuration defined above.
 import_config "#{config_env()}.exs"

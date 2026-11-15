@@ -3,31 +3,12 @@ defmodule OpenQRWeb.IndexLiveTest do
 
   import Phoenix.LiveViewTest
 
-  alias OpenQR.Organizations.OrganizationService
+  test "public home remains blank", %{conn: conn} do
+    {:ok, view, html} = live(conn, ~p"/")
+    document = Floki.parse_document!(html)
 
-  test "public home is blank for guests and signed-in visitors", %{conn: conn} do
-    user = create_user(roles: ["superuser"])
-
-    for visitor_conn <- [conn, log_in_user(conn, user)] do
-      {:ok, view, html} = live(visitor_conn, ~p"/")
-      document = Floki.parse_document!(html)
-
-      assert document |> Floki.find("title") |> Floki.text() |> String.trim() == "OpenQR"
-      assert document |> Floki.find("body") |> Floki.text() |> String.trim() == ""
-      assert render(view) |> Floki.parse_fragment!() |> Floki.find("[data-phx-main] *") == []
-    end
-  end
-
-  test "public home stays blank when an organization is configured", %{conn: conn} do
-    OrganizationService.create_organization!(%{name: "OpenQR Studio"}, actor: %{system: true})
-    user = create_user()
-
-    for visitor_conn <- [conn, log_in_user(conn, user)] do
-      {:ok, view, html} = live(visitor_conn, ~p"/")
-      document = Floki.parse_document!(html)
-
-      assert document |> Floki.find("body") |> Floki.text() |> String.trim() == ""
-      assert render(view) |> Floki.parse_fragment!() |> Floki.find("[data-phx-main] *") == []
-    end
+    assert document |> Floki.find("title") |> Floki.text() |> String.trim() == "OpenQR"
+    assert document |> Floki.find("body") |> Floki.text() |> String.trim() == ""
+    assert render(view) |> Floki.parse_fragment!() |> Floki.find("[data-phx-main] *") == []
   end
 end

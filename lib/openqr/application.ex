@@ -35,17 +35,14 @@ defmodule OpenQR.Application do
 
     children = [
       OpenQRWeb.Telemetry,
-      OpenQR.Repo,
       {DNSCluster, query: Application.get_env(:openqr, :dns_cluster_query) || :ignore},
       {Phoenix.PubSub, name: OpenQR.PubSub},
       OpenQRWeb.Presence,
       OpenQR.Scheduler,
-      OpenQR.Accounts.LoginGuard,
       # Start a worker by calling: OpenQR.Worker.start_link(arg)
       # {OpenQR.Worker, arg},
       # Start to serve requests, typically the last entry
-      OpenQRWeb.Endpoint,
-      {AshAuthentication.Supervisor, [otp_app: :openqr]}
+      OpenQRWeb.Endpoint
     ]
 
     # See https://hexdocs.pm/elixir/Supervisor.html for other strategies and supported options

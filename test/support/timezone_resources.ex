@@ -13,35 +13,6 @@ defmodule OpenQR.CoreUtils.ResourceTest.SequenceRow do
   end
 end
 
-defmodule OpenQR.CoreUtils.Resource.SearchDatetimeTest.Record do
-  use Ash.Resource,
-    domain: OpenQR.CoreUtils.Resource.SearchDatetimeTest.Domain,
-    data_layer: Ash.DataLayer.Ets
-
-  ets do
-    private? true
-  end
-
-  actions do
-    defaults [:read, create: [:name, :at, :native_at]]
-  end
-
-  attributes do
-    uuid_primary_key :id
-    attribute :name, :string
-    attribute :at, :utc_datetime_usec
-    attribute :native_at, :datetime, constraints: [precision: :microsecond]
-  end
-end
-
-defmodule OpenQR.CoreUtils.Resource.SearchDatetimeTest.Domain do
-  use Ash.Domain, otp_app: :openqr, validate_config_inclusion?: false
-
-  resources do
-    resource OpenQR.CoreUtils.Resource.SearchDatetimeTest.Record
-  end
-end
-
 defmodule OpenQR.CoreUtils.ResourceTest.PreciseInstant do
   use Ash.Type.NewType, subtype_of: :datetime, constraints: [precision: :microsecond]
 end

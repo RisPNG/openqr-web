@@ -51,7 +51,7 @@ defmodule OpenQRWeb do
       import Phoenix.LiveView, except: [put_flash: 3]
       import OpenQRWeb.CoreComponents.Flash, only: [put_flash: 3]
 
-      on_mount {OpenQRWeb.LiveUserAuth, :timezone}
+      on_mount {OpenQRWeb.LiveNavigation, :timezone}
       on_mount {OpenQRWeb.CoreComponents, :inputs}
 
       unquote(html_helpers())
@@ -91,7 +91,6 @@ defmodule OpenQRWeb do
       # Core UI components
       import Phoenix.Component, except: [form: 1]
       import OpenQRWeb.CoreComponents
-      import OpenQR.AccessControl.Permissions, only: [can?: 3]
 
       # Common modules used in templates
       alias Phoenix.LiveView.JS
