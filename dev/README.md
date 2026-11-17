@@ -4,6 +4,8 @@ OpenQR Web uses the database-free foundation of Elixirbits `zero`, including its
 
 This guide covers setup, implementation, verification, and deployment. Run the commands below from the repository root.
 
+The public index uses Poppybit's proportional Quanta Strike font assets for normal text. Its scoped Tailwind text utilities pair the existing 12, 14, 16, and 18 px sizes with their corresponding font drawings, including shared controls that apply those utilities. Floating labels select the 14 px and 12 px drawings at their existing size endpoints, while the compact Follow body label uses the 10 px drawing. Only the 12 px drawing supplies a real bold weight. The bundled SIL Open Font Licence remains beside the fonts. The OpenQR title keeps Able 5, while its closely placed byline, version labels, and Poppybit wordmark deliberately scale Quanta Strike 6. These display roles keep their own font styles. Dashboard typography is separate.
+
 ## QR tools
 
 The public home page opens with an empty content field and a design showcase for `https://openqr.my`. Generate all versions uses the submitted content, artwork, and settings. Website icon lookup requires internet access. Uploaded images stay in the current LiveView session. QR generation runs through the separate native engine and its `openqr_engine` Elixir binding. For example, `OpenQR.Engine.generate("https://example.com", version: 5, seed: 42)` returns encoded images, SVG, previews, and verification metadata.

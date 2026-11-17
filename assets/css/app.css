@@ -742,8 +742,7 @@
   padding-left: 0.25rem;
   padding-right: 0.25rem;
   color: var(--color-subcontent);
-  font-size: 0.875rem;
-  line-height: 1.25rem;
+  @apply text-sm;
   opacity: 1;
   transition:
     top var(--field-motion) ease,
@@ -797,8 +796,7 @@
 :is([data-file-has-value="true"], [data-file-editable-like="false"], :where([data-file-has-placeholder="true"][data-file-editable-like="true"])) [data-file-control] .input-floating-label {
   top: 0;
   color: var(--color-brand);
-  font-size: 0.75rem;
-  line-height: 1rem;
+  @apply text-xs;
   opacity: 1;
 }
 
@@ -1850,8 +1848,7 @@ input[type="file"]::file-selector-button {
   left: 0.75rem;
   top: 0;
   color: var(--color-brand);
-  font-size: 0.75rem;
-  line-height: 1rem;
+  @apply text-xs;
   opacity: 1;
 }
 
@@ -1889,8 +1886,7 @@ input[type="file"]::file-selector-button {
   & .input-floating-label.input-floating-label {
     top: 0;
     color: var(--color-brand);
-    font-size: 0.75rem;
-    line-height: 1rem;
+    @apply text-xs;
     opacity: 1;
   }
 

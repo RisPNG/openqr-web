@@ -10,7 +10,7 @@
   font-family: "able-5", monospace;
   font-weight: 400;
   font-size: 4rem;
-  line-height: 1.1;
+  line-height: 1;
 }
 
 .qr-version-label {
@@ -21,10 +21,11 @@
 }
 
 .qr-byline {
+  margin-top: -0.625rem;
   font-family: "quanta-strike-6", monospace;
   font-weight: 400;
   font-size: 1rem;
-  line-height: 1.25;
+  line-height: 1;
 }
 
 .qr-scroll {
@@ -32,6 +33,11 @@
   scrollbar-color: var(--color-content) transparent;
   overscroll-behavior: contain;
   scrollbar-gutter: stable;
+}
+
+.qr-follow-body-label {
+  font-family: "quanta-strike-10", monospace;
+  font-size: 0.625rem;
 }
 
 .qr-version[aria-pressed="true"] > :first-child {

@@ -1,4 +1,52 @@
 @font-face {
+  font-family: "quanta-strike-10";
+  src: url("/fonts/quanta-strike/quanta-strike-10-regular.woff2") format("woff2");
+  font-weight: 400;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: "quanta-strike-12";
+  src: url("/fonts/quanta-strike/quanta-strike-12-regular.woff2") format("woff2");
+  font-weight: 400;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: "quanta-strike-12";
+  src: url("/fonts/quanta-strike/quanta-strike-12-bold.woff2") format("woff2");
+  font-weight: 700;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: "quanta-strike-14";
+  src: url("/fonts/quanta-strike/quanta-strike-14-regular.woff2") format("woff2");
+  font-weight: 400;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: "quanta-strike-16";
+  src: url("/fonts/quanta-strike/quanta-strike-16-regular.woff2") format("woff2");
+  font-weight: 400;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: "quanta-strike-18";
+  src: url("/fonts/quanta-strike/quanta-strike-18-regular.woff2") format("woff2");
+  font-weight: 400;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
   font-family: "quanta-strike-6";
   src: url("/fonts/quanta-strike/quanta-strike-6-regular.woff2") format("woff2");
   font-weight: 400;
@@ -12,8 +60,33 @@
 }
 
 .index-shell {
+  font-family: "quanta-strike-16", monospace;
   height: calc(100svh - 1.75rem);
   border-radius: 1.75rem;
+}
+
+@utility text-xs {
+  :where(.index-shell) & {
+    font-family: "quanta-strike-12", monospace;
+  }
+}
+
+@utility text-sm {
+  :where(.index-shell) & {
+    font-family: "quanta-strike-14", monospace;
+  }
+}
+
+@utility text-base {
+  :where(.index-shell) & {
+    font-family: "quanta-strike-16", monospace;
+  }
+}
+
+@utility text-lg {
+  :where(.index-shell) &:not(:where(.index-wordmark *)) {
+    font-family: "quanta-strike-18", monospace;
+  }
 }
 
 .index-wordmark {
