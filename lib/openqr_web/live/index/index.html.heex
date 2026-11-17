@@ -55,12 +55,7 @@
             phx-submit="generate"
             class="grid min-w-0 gap-5"
           >
-            <div>
-              <h2 class="text-lg font-semibold">Create your QR</h2>
-              <p class="mt-1 text-xs leading-5 text-subcontent">
-                Enter your content and press Generate all versions when you are ready.
-              </p>
-            </div>
+            <h2 class="text-lg font-semibold">Create your QR</h2>
 
             <p
               :if={@generation_error && !@selected_entry}
@@ -205,11 +200,8 @@
                 id="qr-design-options"
                 phx-hook="QRDesign"
                 data-reliability={Jason.encode!(@reliability)}
-                class="grid gap-5 pt-4"
+                class="grid gap-5"
               >
-                <p class="text-xs leading-5 text-subcontent">
-                  Shape choices apply to Mosaic. Follow body uses the selected body shape in the eye modules.
-                </p>
                 <p :if={!@designs_available?} class="text-xs leading-5 text-subcontent">
                   No reliable designs are available in the prepared catalog.
                 </p>

@@ -1,5 +1,5 @@
 defmodule OpenQRWeb.IndexLiveTest do
-  use OpenQRWeb.ConnCase, async: true
+  use OpenQRWeb.ConnCase, async: false
 
   import Phoenix.LiveViewTest
 
@@ -187,6 +187,7 @@ defmodule OpenQRWeb.IndexLiveTest do
            )
 
     assert document |> Floki.find("textarea[name='qr[payload]']") |> Floki.text() == ""
+    assert has_element?(view, "input[name='qr[auto_brand]'][type='checkbox'][checked]")
     refute has_element?(view, "#version-card")
     refute has_element?(view, "#qr-export-options")
 
@@ -215,6 +216,32 @@ defmodule OpenQRWeb.IndexLiveTest do
              view,
              "footer a[href='https://poppybit.com'] img[src='/images/poppybit.png']"
            )
+  end
+
+  test "recovers when a missing showcase catalog becomes available", %{conn: conn} do
+    manifest_path = Path.join(OpenQR.DefaultQR.directory(), "catalog.json")
+    manifest = File.read!(manifest_path)
+    {:ok, catalog} = OpenQR.DefaultQR.catalog()
+    on_exit(fn -> File.write!(manifest_path, manifest) end)
+    File.rm!(manifest_path)
+
+    {:ok, view, _} = live(conn, ~p"/")
+    assert has_element?(view, "#qr-showcase[phx-hook='QRShowcase']")
+    assert has_element?(view, "[data-showcase-retry]")
+    refute has_element?(view, "#generation-error")
+
+    File.write!(manifest_path, manifest)
+    render_hook(view, "showcase-ready", %{"catalog_id" => catalog["id"]})
+    render_click(view, "select-version", %{"version" => "4"})
+    render_async(view, 30_000)
+    assert has_element?(view, "a[download='openqr-v4.png']")
+    refute has_element?(view, "#generation-error")
+
+    view |> element("button[phx-click='close-version']") |> render_click()
+    view |> form("#qr-options", qr: %{payload: ""}) |> render_submit()
+    assert has_element?(view, "#generation-error", "Check the highlighted settings.")
+    render_hook(view, "showcase-ready", %{"catalog_id" => catalog["id"]})
+    assert has_element?(view, "#generation-error", "Check the highlighted settings.")
   end
 
   test "showcases only shape changes while input, options, and uploads wait for generation", %{
@@ -380,6 +407,7 @@ defmodule OpenQRWeb.IndexLiveTest do
     |> form("#qr-options",
       qr: %{
         payload: "https://openqr.my",
+        auto_brand: "false",
         body_shape: "circle",
         ha_mr: "true"
       }

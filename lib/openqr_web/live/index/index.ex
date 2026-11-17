@@ -358,9 +358,7 @@ defmodule OpenQRWeb.IndexLive.Index do
             assign(socket,
               busy: false,
               results: %{},
-              skipped: %{},
-              generation_error:
-                "Default previews are unavailable. You can still generate your QR code."
+              skipped: %{}
             )
 
           connected?(socket) ->

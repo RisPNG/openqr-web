@@ -45,6 +45,11 @@ defmodule OpenQR.QRTest do
     assert changeset = OpenQR.QR.changeset(%{"payload" => "  hello\nworld  "})
     assert changeset.valid?
     assert Ecto.Changeset.get_field(changeset, :payload) == "  hello\nworld  "
+    assert Ecto.Changeset.get_field(changeset, :auto_brand)
+
+    refute OpenQR.QR.changeset(%{"auto_brand" => "false"})
+           |> Ecto.Changeset.get_field(:auto_brand)
+
     refute OpenQR.QR.changeset(%{"payload" => ""}).valid?
     refute OpenQR.QR.changeset().valid?
 
@@ -88,6 +93,7 @@ defmodule OpenQR.QRTest do
     settings =
       OpenQR.QR.changeset(%{
         "payload" => "https://openqr.my",
+        "auto_brand" => "false",
         "body_shape" => "rounded",
         "eye_frame" => "scalloped",
         "eye_ball" => "diamond"
@@ -107,6 +113,7 @@ defmodule OpenQR.QRTest do
   test "encodes the selected ha.mr link while preserving the entered website" do
     params = %{
       "payload" => "https://openqr.my",
+      "auto_brand" => "false",
       "ha_mr" => "true",
       "ha_mr_url" => "https://ha.mr#.uod[;no"
     }
@@ -136,6 +143,7 @@ defmodule OpenQR.QRTest do
   test "keeps the showcase at default content and options with only the selected shapes" do
     initial = OpenQR.QR.changeset() |> Ecto.Changeset.apply_changes()
     assert initial.payload == ""
+    assert initial.auto_brand
 
     draft =
       OpenQR.QR.changeset(%{
@@ -158,6 +166,7 @@ defmodule OpenQR.QRTest do
     assert OpenQR.QR.showcase(draft) == %{
              initial
              | payload: "https://openqr.my",
+               auto_brand: false,
                body_shape: "circle",
                eye_frame: "follow-body",
                eye_ball: "circle"

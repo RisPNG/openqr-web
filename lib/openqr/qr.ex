@@ -5,7 +5,7 @@ defmodule OpenQR.QR do
   @defaults %{
     payload: "",
     mode: "mosaic",
-    auto_brand: false,
+    auto_brand: true,
     vary_url: false,
     ha_mr: false,
     ha_mr_url: "",
@@ -95,6 +95,7 @@ defmodule OpenQR.QR do
     %{
       @defaults
       | payload: @showcase_payload,
+        auto_brand: false,
         body_shape: settings.body_shape,
         eye_frame: settings.eye_frame,
         eye_ball: settings.eye_ball
