@@ -14,6 +14,11 @@ defmodule OpenQRWeb.Router do
     plug :accepts, ["json"]
   end
 
+  scope "/qr-defaults", OpenQRWeb do
+    get "/:namespace/catalog.json", DefaultQRController, :catalog
+    get "/:namespace/:name", DefaultQRController, :shard
+  end
+
   scope "/", OpenQRWeb do
     pipe_through :browser
 

@@ -1,4 +1,5 @@
 import Config
+config :openqr, default_qr_directory: Path.expand("../tmp/qr_defaults", __DIR__)
 config :ash, policies: [show_policy_breakdowns?: true], disable_async?: true
 
 config :openqr,

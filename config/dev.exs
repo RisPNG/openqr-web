@@ -1,4 +1,6 @@
 import Config
+config :openqr, default_qr_directory: Path.expand("../var/qr_defaults", __DIR__)
+config :phoenix_live_reload, dirs: ["lib", "priv/static", "priv/gettext"]
 config :ash, policies: [show_policy_breakdowns?: true]
 
 config :live_debugger, port: 5000, auto_port: true

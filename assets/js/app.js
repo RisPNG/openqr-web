@@ -30,6 +30,10 @@ import UploadPdfPreview from "./upload_pdf_preview"
 import FileInput, {FilePreview} from "./file_input"
 import ColorInput from "./color_input"
 import NumberInput from "./number_input"
+import HaMRLink from "./ha_mr_link"
+import QRShowcase, {QRDesign} from "./qr_showcase"
+import QRScanner from "./qr_scanner"
+import {QRDownloads, QRHistory} from "./qr_history"
 import CinderPagination from "./cinder_pagination"
 import initInputControls from "./input_controls"
 import topbar from "topbar"
@@ -41,7 +45,7 @@ const liveSocket = new LiveSocket("/live", Socket, {
     _csrf_token: csrfToken,
     user_timezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
   }),
-  hooks: {...colocatedHooks, PetalComboBox, FlashAutoDismiss, VCalendar, TelInput, PasswordVisibility, LiveTimer, UploadPdfPreview, FileInput, FilePreview, ColorInput, NumberInput, CinderPagination},
+  hooks: {...colocatedHooks, PetalComboBox, FlashAutoDismiss, VCalendar, TelInput, PasswordVisibility, LiveTimer, UploadPdfPreview, FileInput, FilePreview, ColorInput, NumberInput, HaMRLink, QRShowcase, QRDesign, QRScanner, QRDownloads, QRHistory, CinderPagination},
 })
 
 // Show progress bar on live navigation and form submits

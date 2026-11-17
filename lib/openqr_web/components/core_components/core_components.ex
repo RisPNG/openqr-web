@@ -329,6 +329,11 @@ defmodule OpenQRWeb.CoreComponents do
   attr :show, :boolean, default: true
   attr :label, :string, default: "Dialog"
   attr :on_cancel, JS, default: %JS{}
+
+  attr :return_focus, :string,
+    default: nil,
+    doc: "an optional selector to focus after restoring captured focus when the modal is removed"
+
   slot :title
   slot :inner_block, required: true
 
@@ -727,7 +732,15 @@ defmodule OpenQRWeb.CoreComponents do
 
   attr :options, :list,
     doc:
-      "select and combobox options, or radio {label, value} tuples with optional description and disabled metadata in a third keyword list"
+      "select and combobox options, or radio {label, value} tuples with optional description, disabled, and caller-owned data metadata in a third keyword list"
+
+  attr :options_class, :any,
+    default: nil,
+    doc: "for radio inputs, replaces the option container's layout classes"
+
+  attr :option_class, :any,
+    default: nil,
+    doc: "for radio inputs, replaces each option label's complete classes"
 
   attr :clear_button, :boolean, default: true, doc: "allows clearing an editable field"
 
@@ -792,6 +805,10 @@ defmodule OpenQRWeb.CoreComponents do
   attr :thumbnail_class, :any,
     default: "h-36 w-full",
     doc: "the size of a thumbnail's media frame"
+
+  slot :option,
+    doc:
+      "for a radio field, overrides each choice's content, given a map with label, value, description, disabled, and caller-owned data"
 
   slot :stored_preview, doc: "for a file field, overrides one stored file's media, given its URL"
 
@@ -1551,14 +1568,15 @@ defmodule OpenQRWeb.CoreComponents do
         :radio_options,
         Enum.map(assigns.options, fn
           {label, value} ->
-            %{label: label, value: value, description: nil, disabled: false}
+            %{label: label, value: value, description: nil, disabled: false, data: nil}
 
           {label, value, options} ->
             %{
               label: label,
               value: value,
               description: options[:description],
-              disabled: options[:disabled] || false
+              disabled: options[:disabled] || false,
+              data: options[:data]
             }
         end)
       )

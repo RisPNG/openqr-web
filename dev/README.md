@@ -2,7 +2,25 @@
 
 OpenQR Web uses the database-free foundation of Elixirbits `zero`, including its Elixir, Phoenix LiveView, and Ash structure, shared form components, and application infrastructure. It runs without a database or account setup.
 
-This guide covers setup, implementation, verification, and deployment. For the application overview, see the [main README](../README.md). Run the commands below from the repository root.
+This guide covers setup, implementation, verification, and deployment. Run the commands below from the repository root.
+
+## QR tools
+
+The public home page opens with an empty content field and a design showcase for `https://openqr.my`. Generate all versions uses the submitted content, artwork, and settings. Website icon lookup requires internet access. Uploaded images stay in the current LiveView session. QR generation runs through the separate native engine and its `openqr_engine` Elixir binding. For example, `OpenQR.Engine.generate("https://example.com", version: 5, seed: 42)` returns encoded images, SVG, previews, and verification metadata.
+
+Generate retains its draft and gallery when switching tools. Scan uses the reader-only `zxing-wasm` package in a dedicated module worker, with its WASM binary emitted into the application's own static assets. Image files, camera frames, and decoded results remain in the browser. Camera access starts only after pressing Start camera and stops when leaving Scan or hiding the page. The [scanner source review](qr-scanner-research.md) records the alternatives, evidence, scores, and verification limits.
+
+History uses the browser's `openqr-downloads` IndexedDB database. An export click stores the exact downloaded Blob, filename, encoded payload, QR version, and download time. A digest and filename identify an artifact, so downloading the same file again updates its time instead of adding a duplicate. Generating, inspecting, regenerating, and scanning do not create entries. The browser exposes the download action but cannot confirm completion or cancellation of the operating system's save dialogue. Storage failures leave the download available and display an error. History can be removed per entry or cleared; clearing site data also removes it. It is not synced between browsers or devices.
+
+### ha.mr links
+
+`assets/js/ha_mr_link.js` imports the unmodified MIT-licensed compressor and ASCII alphabet vendored from `p2r3/ha.mr` commit `e1241f25f3e193b070acc0485288961ec11ce34f`. The hook works locally without contacting a shortening API. It trims a copy of the input, parses HTTP or HTTPS URLs, rejects embedded credentials, and passes the normalised URL to the compressor. Bare addresses default to HTTP; explicit HTTPS is preserved. The input field itself stays unchanged.
+
+The compressor separates the host, port, path, query, and fragment, then packs them using dictionaries, Huffman coding, small character alphabets, and a versioned integer representation. The result becomes `https://ha.mr#<token>`. With the checkbox enabled, Generate encodes that derived address; otherwise it encodes the original text. The existing website-icon lookup uses the original address.
+
+The size message follows the upstream ASCII mode: compare the input without its leading HTTP/HTTPS scheme against the token plus six characters for `ha.mr#`, then round smaller percentages up and larger percentages down. It is not a comparison of the complete displayed HTTPS addresses. For example, `youtube.com` becomes `https://ha.mr#CH` and reports 28% smaller; `openqr.my` becomes `https://ha.mr#vYfd[;no` and reports 55% larger. Compressing does not guarantee a shorter link.
+
+The token contains the destination reversibly; it is not encrypted or a database lookup key. The pinned upstream `docs/main.js` reads the fragment, decompresses it, and presents a destination confirmation before navigation. Following the link still depends on the ha.mr page and its JavaScript being available. Its [compressor](https://github.com/p2r3/ha.mr/blob/e1241f25f3e193b070acc0485288961ec11ce34f/docs/compress.js) and [page logic](https://github.com/p2r3/ha.mr/blob/e1241f25f3e193b070acc0485288961ec11ce34f/docs/main.js) are the source references.
 
 The application follows the implementation standard established by Elixirbits `zero`, including application structure, shared components, and page behaviour. Use the relevant existing implementation as the reference for new work, and keep its code, examples, tests, and documentation consistent when changing a shared pattern.
 
@@ -48,13 +66,47 @@ The date/time picker library loads when a `VCalendar` input mounts, and the RGBA
 
 npm 12 reads `allow-git=root` from `assets/.npmrc`, permitting Git dependencies directly declared by the project. The `allowScripts` entry for `github:RisPNG/super-image-cropper` in `assets/package.json` approves that source's preparation script, which builds its worker. These project permissions apply to the existing `npm install` and `npm ci` commands.
 
-Open [localhost:4000](http://localhost:4000) for the blank public home page. The application workspace is at [localhost:4000/dashboard](http://localhost:4000/dashboard), and the component examples are at `/dashboard/dev_panel/layout_test`. Both routes are public. Development also exposes LiveDashboard at `/dashboard/dev/dashboard` and the mailbox preview at `/dashboard/dev/mailbox`.
+Open [localhost:4000](http://localhost:4000) for the QR editor. The application workspace is at [localhost:4000/dashboard](http://localhost:4000/dashboard), and the component examples are at `/dashboard/dev_panel/layout_test`. Both routes are public. Development also exposes LiveDashboard at `/dashboard/dev/dashboard` and the mailbox preview at `/dashboard/dev/mailbox`.
 
-The public route uses `OpenQRWeb.IndexLive.Index` in `lib/openqr_web/live/index/index.ex`, with its content in the sibling `index.html.heex`. Its native LiveView layout is `lib/openqr_web/components/layouts/index.html.heex`, and it renders no page content or navigation. Dashboard navigation belongs to its separate layout and live session.
+The public route uses `OpenQRWeb.IndexLive.Index` in `lib/openqr_web/live/index/index.ex`, with its content in the sibling `index.html.heex`. Its native LiveView layout in `lib/openqr_web/components/layouts/index.html.heex` owns the branded shell and footer. The editor owns its settings, selected export, and version gallery. Dashboard navigation belongs to its separate layout and live session.
 
 Dashboard pages use `Layouts.dashboard`, with the topbar and sidebar in `lib/openqr_web/components/layouts/dashboard.html.heex`. Both layouts share the HTML document in `lib/openqr_web/components/layouts/root.html.heex`. Dashboard feature pages live under `lib/openqr_web/live/dashboard/`, with their corresponding modules under `OpenQRWeb.Dashboard`. The public index stays in `lib/openqr_web/live/index/`.
 
 `OpenQRWeb.LiveNavigation` in `lib/openqr_web/live_navigation.ex` owns the static navigation entries, active path, and expanded branches. Its `:app_nav` mount hook supplies dashboard navigation and handles the sidebar controls. Navigation changes take effect through the application source.
+
+## Default QR previews
+
+`OpenQR.DefaultQR` prepares the default payload across the native body, eye-frame, and eye-ball catalogues. The editor opens with an empty content field and loads the entire prepared browser catalogue before enabling shape choices. Before the first valid generation request, the browser owns the default gallery. Only the three shape choices change it. Its payload remains `https://openqr.my`, and its other settings remain at their defaults, regardless of the editor's draft text, checkboxes, rendering mode, or uploaded images.
+
+The catalogue compiler independently decodes each delivered PNG through the native engine and verifies its exact payload. It retains a combination only when all 40 versions pass. A body is retired when failed previews outnumber verified previews, or when it has no complete combination. Frame choices follow the selected body, and ball choices follow that body and frame. Changing a choice preserves a compatible selection where possible, then chooses the first compatible pair. These measurements describe the default payload and preview sizes, rather than guaranteeing every future payload or physical scan.
+
+The compiler shares identical grayscale body planes and four corner patches by their actual dimensions and pixels. Reassembling every retained source must reproduce its original pixels exactly. The versioned binary shards contain their indices, dimensions, corner windows, and pixel planes. Shards are gzip-compressed and addressed by their content hashes. The compiler publishes every immutable shard and metadata file before atomically replacing `catalog.json`. Existing source presets remain untouched.
+
+The `/qr-defaults` endpoints revalidate the manifest and stream immutable shards with ETags. They do not generate images. `QRShowcase` downloads at most two shards concurrently, checks their sizes and hashes, and validates every reference before making the gallery interactive. It retains grayscale planes and draws only the current 40 RGBA canvases. Once ready, every permitted design change uses those local pixels, including the first selection. Initial loading therefore transfers the complete catalogue. A failed or incomplete load keeps design choices disabled and offers a retry, while explicit QR generation remains available.
+
+`QRDesign` owns compatible choices and keeps them constrained after the first generation. `QRShowcase` stamps the displayed shape choices on each version-inspection event, so the modal uses the clicked design even before a form update reaches the server. A valid Generate submission removes the showcase hook, aborts outstanding loads, releases its pixel data, and returns the generated gallery to LiveView ownership. An invalid submission retains the showcase.
+
+Generate all versions submits the current editor settings and images for asynchronous generation. The gallery retains that submitted snapshot through later edits until another generation request. Version downloads and regeneration use the gallery snapshot rather than unsent editor changes. Selecting a version separately verifies its export, since readability can change with size. `OpenQR.QR` prefers 12 pixels per module for exports and retries 6 and 3 when no verified layout exists at the preferred size. An explicitly supplied scale is respected. Recovery reserve 2, image colours enabled, and unchanged brightness and contrast remain fixed defaults. Gallery generation uses 3 pixels per module.
+
+The modal's seed field starts empty with the accepted seed as its placeholder. Each empty-seed regeneration requests a fresh random seed and updates the placeholder after success. A supplied seed uses the native unsigned 32-bit range. Seed and Regenerate version share an equal-width row. Error correction is selected automatically by the engine, trying H first and then Q, M, and L until a version fits the content and recovery reserve and produces a verified layout. Verified downloads and regeneration use the same automatic selection path as gallery generation. The modal does not accept an error correction override.
+
+Development and local production Mix runs use `var/qr_defaults`, which stays outside source control and avoids copying a large cache into every Windows Mix build. Tests use `tmp/qr_defaults` so fixtures cannot replace a working catalogue. Run both preparation stages before starting Phoenix:
+
+```sh
+mise exec -- mix qr.prebuild --directory var/qr_defaults --concurrency 8
+mise exec -- mix qr.prebuild --directory var/qr_defaults --catalog
+mise exec -- mix qr.prebuild --directory var/qr_defaults --catalog --status
+```
+
+Source prebuild reruns reuse completed combinations, including explicit skipped-version records. Concurrency bounds simultaneous native generation calls. Catalogue compilation inspects those delivered previews again and publishes reliability counts alongside the selectable combinations. The complete source cache can take substantial CPU time and storage. Limited catalogue builds set `complete: false` and do not enable the browser showcase. Use a separate `--directory` for limited smoke checks.
+
+To import an existing source cache after a native or binding build change, pass its absolute fingerprinted directory to `mise exec -- mix qr.prebuild --catalog --source-directory <absolute-source-cache-directory>`. This explicit import leaves the source untouched, verifies its delivered images with the installed engine, and publishes a new catalogue under the current build identity. It does not silently equate different native build fingerprints.
+
+An assembled release retains the application's `priv/qr_defaults` default. Prepare source presets and compile their catalogue with `--directory priv/qr_defaults` before assembling a release that packages it, or set `DEFAULT_QR_DIRECTORY` to an existing persistent cache directory in production. The override takes precedence for both Mix runs and releases. Compile or explicitly import the catalogue using the deployment engine build. Missing or corrupt catalogue data leaves the showcase unavailable while explicit user generation still works. The editor never silently generates missing default previews.
+
+Website icon lookup resolves public HTTP(S) destinations, checks redirects, pins the resolved address, and limits response sizes and timeouts. It never rewrites the text encoded in the QR code. Uploaded reference images take priority over automatic lookup, and QR images are processed by the native engine.
+
+The optional ha.mr link uses the pinned upstream encoder in `assets/vendor/ha-mr/`. `HaMRLink` compresses locally before LiveView serialises the form and reports the same size comparison as ha.mr. It passes a validated, normalised URL to the unchanged encoder so bare hosts with ports and URLs containing another URL in their query keep the intended destination. The original text stays in the input and supplies website icon lookup, while the submitted QR request encodes the derived `https://ha.mr#...` destination. Toggling the option changes the draft and its size comparison without changing the gallery. The preserved upstream licence and commit are recorded with the vendored source.
 
 ## Backend structure
 
@@ -62,7 +114,7 @@ Application infrastructure lives directly under `lib/openqr/`: `Application` own
 
 Ash remains available for types, forms, and data-independent features. `ash_domains` starts empty, and the application defines no repository or persisted resources. The layout-test Cinder resource uses an embedded data layer and manually supplies sample records for filtering, sorting, and pagination. API and RPC infrastructure can remain configured without a database.
 
-The native engine owns QR generation. Call `OpenQR.Engine.generate/2` directly through the existing dependency. For example, `OpenQR.Engine.generate("https://example.com", version: 5, seed: 42)` returns `{:ok, batch}` with encoded images, SVG, previews, and verification metadata, or `{:error, reason}`. The web application has no QR generation page yet.
+The native engine owns QR generation. `OpenQR.QR` validates editor settings and calls `OpenQR.Engine.generate/2` through the existing dependency. For example, `OpenQR.Engine.generate("https://example.com", version: 5, seed: 42)` returns `{:ok, batch}` with encoded images, SVG, previews, and verification metadata, or `{:error, reason}`. The public editor uses this workflow for custom previews, selected exports, and seed regeneration.
 
 Ash and PetalComponents still require Ecto and Phoenix Ecto for metadata and form integration. SQL adapters and PostgreSQL drivers are absent, and Phoenix Ecto's migration and storage error actions are excluded through its native configuration. Money and localisation support use ExMoney directly.
 
@@ -359,3 +411,18 @@ Ash string-length constraints count Unicode codepoints.
 ### Deployment
 
 Production requires `SECRET_KEY_BASE` and a writable, persistent `UPLOAD_DIRECTORY`, as configured in `config/runtime.exs`. Set `PHX_SERVER` when starting a release, and configure `PHX_HOST` and `PORT` for the deployment. No database URL or authentication signing secret is required. Build deployment assets with `mise exec -- mix assets.deploy` and consult the [Phoenix deployment guide](https://hexdocs.pm/phoenix/deployment.html) for release setup.
+
+For a local production run on Windows, initialise the Visual Studio developer environment described in [Local setup](#local-setup), then run these commands from the project directory in the same PowerShell session:
+
+```powershell
+$env:MIX_ENV = "prod"
+$env:UPLOAD_DIRECTORY = Join-Path $PWD.Path "var\uploads\public"
+$env:PHX_HOST = "localhost"
+$env:PORT = "12351"
+$env:SECRET_KEY_BASE = mise exec -- mix phx.gen.secret
+if ($LASTEXITCODE -ne 0) { throw "Secret generation failed." }
+
+mise exec -- mix do compile + assets.deploy + phx.server
+```
+
+Open `http://localhost:12351`. The combined Mix command stops if compilation or asset deployment fails. A launcher that starts a fresh PowerShell process must initialise the developer environment inside that process before running these commands. Setting up another terminal does not change an existing launcher's environment. PowerShell removes the quotes around `"prod"` in the assignment above, so the environment variable contains `prod`, without literal quotation marks. `mix phx.server` enables the endpoint itself and does not need `PHX_SERVER`.

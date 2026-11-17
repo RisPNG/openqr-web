@@ -132,7 +132,11 @@
       id={@id}
       class="fixed inset-0 z-50 grid place-items-center p-4"
       phx-mounted={JS.push_focus() |> JS.focus_first(to: "##{@id}-content")}
-      phx-remove={JS.pop_focus()}
+      phx-remove={
+        if @return_focus,
+          do: JS.pop_focus() |> JS.focus(to: @return_focus),
+          else: JS.pop_focus()
+      }
       phx-window-keydown={JS.exec("data-cancel", to: "##{@id}")}
       phx-key="Escape"
       data-cancel={@on_cancel}
@@ -1318,7 +1322,7 @@
       data-input-type={@type}
       data-input-clearable={to_string(@input_clearable)}
       id={@id}
-      class="group"
+      class="group min-w-0"
       role={if @render_as == "like-enabled", do: "radiogroup"}
       disabled={@rest[:disabled]}
       {@radio_group_rest}
@@ -1350,15 +1354,21 @@
       />
       <div
         class={
-          if @variant == "card",
-            do: "grid grid-cols-[repeat(var(--radio-options),max-content)] gap-4",
-            else: "flex flex-col gap-3"
+          @options_class ||
+            if @variant == "card",
+              do: "grid grid-cols-[repeat(var(--radio-options),max-content)] gap-4",
+              else: "flex flex-col gap-3"
         }
-        style={@variant == "card" && "--radio-options: #{length(@radio_options)}"}
+        style={
+          is_nil(@options_class) && @variant == "card" &&
+            "--radio-options: #{length(@radio_options)}"
+        }
       >
         <label
           :for={option <- @radio_options}
           role={if @render_as == "like-enabled", do: "radio"}
+          aria-label={if @render_as == "like-enabled" && @option != [], do: option.label}
+          title={if @option != [], do: option.label}
           aria-checked={
             if @render_as == "like-enabled",
               do: to_string(to_string(@value) == to_string(option.value))
@@ -1372,23 +1382,26 @@
             if @render_as == "like-enabled",
               do: to_string(!!(@rest[:disabled] || option.disabled))
           }
-          class={[
-            if(@variant == "card",
-              do: [
-                "relative grid grid-cols-[minmax(0,1fr)] cursor-pointer rounded-default border bg-transparent px-4 py-2 text-center text-sm text-content has-[:checked]:bg-secondary data-[radio-checked=true]:bg-secondary has-[:focus-visible]:ring-2 has-[:disabled]:cursor-not-allowed has-[:disabled]:opacity-50 data-[radio-disabled=true]:cursor-not-allowed data-[radio-disabled=true]:opacity-50",
-                @errors == [] &&
-                  "border-outline has-[:checked]:border-brand data-[radio-checked=true]:border-brand has-[:focus-visible]:ring-brand",
-                @errors != [] &&
-                  (@error_class ||
-                     "border-error has-[:checked]:border-error data-[radio-checked=true]:border-error has-[:focus-visible]:ring-error")
-              ],
-              else: [
-                "grid grid-cols-[1.25rem_1fr] items-center gap-2 text-sm text-content",
-                "has-[:disabled]:cursor-not-allowed has-[:disabled]:text-subcontent data-[radio-disabled=true]:cursor-not-allowed data-[radio-disabled=true]:text-subcontent",
-                @errors != [] && (@error_class || "text-error")
+          class={
+            @option_class ||
+              [
+                if(@variant == "card",
+                  do: [
+                    "relative grid grid-cols-[minmax(0,1fr)] cursor-pointer rounded-default border bg-transparent px-4 py-2 text-center text-sm text-content has-[:checked]:bg-secondary data-[radio-checked=true]:bg-secondary has-[:focus-visible]:ring-2 has-[:disabled]:cursor-not-allowed has-[:disabled]:opacity-50 data-[radio-disabled=true]:cursor-not-allowed data-[radio-disabled=true]:opacity-50",
+                    @errors == [] &&
+                      "border-outline has-[:checked]:border-brand data-[radio-checked=true]:border-brand has-[:focus-visible]:ring-brand",
+                    @errors != [] &&
+                      (@error_class ||
+                         "border-error has-[:checked]:border-error data-[radio-checked=true]:border-error has-[:focus-visible]:ring-error")
+                  ],
+                  else: [
+                    "grid grid-cols-[1.25rem_1fr] items-center gap-2 text-sm text-content",
+                    "has-[:disabled]:cursor-not-allowed has-[:disabled]:text-subcontent data-[radio-disabled=true]:cursor-not-allowed data-[radio-disabled=true]:text-subcontent",
+                    @errors != [] && (@error_class || "text-error")
+                  ]
+                )
               ]
-            )
-          ]}
+          }
         >
           <input
             :if={@render_as != "like-enabled"}
@@ -1397,6 +1410,7 @@
             name={@name}
             value={to_string(option.value)}
             checked={to_string(@value) == to_string(option.value)}
+            aria-label={if @option != [], do: option.label}
             class={
               if @variant == "card",
                 do: ["sr-only", @class],
@@ -1432,12 +1446,16 @@
                 ]
             }
           />
-          <span class="grid grid-cols-[minmax(0,1fr)]">
-            <span class={@variant == "card" && "font-semibold"}>{option.label}</span>
-            <span :if={option.description} class="text-xs text-subcontent">
-              {option.description}
+          <%= if @option != [] do %>
+            {render_slot(@option, option)}
+          <% else %>
+            <span class="grid grid-cols-[minmax(0,1fr)]">
+              <span class={@variant == "card" && "font-semibold"}>{option.label}</span>
+              <span :if={option.description} class="text-xs text-subcontent">
+                {option.description}
+              </span>
             </span>
-          </span>
+          <% end %>
         </label>
       </div>
 

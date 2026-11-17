@@ -3,6 +3,8 @@
 @import "tailwindcss" source(none);
 @import "vanilla-calendar-pro/styles/index.css";
 @import "./subgap.css";
+@import "../../lib/openqr_web/components/layouts/index.css";
+@import "../../lib/openqr_web/live/index/index.css";
 
 @source "../../deps/cinder";
 @source "../../deps/petal_components/lib/petal_components/combo_box.ex";
@@ -17,25 +19,41 @@
 /* Global theme tokens and light colors */
 
 @theme static {
+  --theme-light-primary: #ffffff;
+  --theme-light-secondary: #e3e1e5;
   --theme-light-content: oklch(24% 0.016 252.42);
   --theme-light-subcontent: oklch(44% 0.024 252.42);
   --theme-dark-content: oklch(96% 0.003 252.42);
   --theme-dark-subcontent: oklch(78% 0.012 252.42);
+  --theme-light-content-inverse: var(--theme-dark-content);
+  --theme-light-subcontent-inverse: var(--theme-dark-subcontent);
+  --theme-light-info: #6b91b4;
+  --theme-light-success: #659780;
+  --theme-light-warning: #ad8340;
+  --theme-light-error: #c37380;
+  --theme-light-outline: #b7b7b7;
+  --theme-light-outline-target: var(--color-dark);
+  --theme-light-outline-strength: 22%;
 
-  --color-primary: #ffffff;
-  --color-secondary: #e3e1e5;
+  --color-primary: var(--theme-light-primary);
+  --color-secondary: var(--theme-light-secondary);
   --color-content: var(--theme-light-content);
   --color-subcontent: var(--theme-light-subcontent);
-  --color-content-inverse: var(--theme-dark-content);
-  --color-subcontent-inverse: var(--theme-dark-subcontent);
-  --color-brand: #7e49b3;
-  --color-info: #6b91b4;
-  --color-success: #659780;
-  --color-warning: #ad8340;
-  --color-error: #c37380;
+  --color-content-inverse: var(--theme-light-content-inverse);
+  --color-subcontent-inverse: var(--theme-light-subcontent-inverse);
+  --color-brand: #ff496e;
+  --color-brand-frame: #ffffff;
+  --color-brand-content: var(--color-brand-frame);
+  --color-brand-ink: #16181c;
+  --color-brand-wordmark: #000000;
+  --color-brand-pattern: color-mix(in srgb, var(--color-brand), var(--color-brand-ink) 4%);
+  --color-info: var(--theme-light-info);
+  --color-success: var(--theme-light-success);
+  --color-warning: var(--theme-light-warning);
+  --color-error: var(--theme-light-error);
 
-  --color-outline: #b7b7b7;
-  --outline-target: var(--color-dark);
+  --color-outline: var(--theme-light-outline);
+  --outline-target: var(--theme-light-outline-target);
 
   --overlay-opacity: 0.1;
   --color-dark: oklch(0% 0 0 / var(--overlay-opacity));
@@ -72,6 +90,25 @@
   --background-color-outline--outline-fill: color-mix(in oklab, var(--surface-parent), oklch(from var(--outline-target) l c h / 1) var(--outline-strength));
   --shadow-card: 0 0 0 1px color-mix(in srgb, var(--outline-target), transparent 50%), 0 1px 2px var(--color-dark), 0 4px 12px -4px var(--color-dark);
   --shadow-button: inset 0 1px 0 color-mix(in srgb, var(--color-light), transparent 50%), 0 1px 2px var(--color-dark);
+}
+
+/* Explicit light colors */
+
+[data-theme="light"] {
+  --color-primary: var(--theme-light-primary);
+  --color-secondary: var(--theme-light-secondary);
+  --color-content: var(--theme-light-content);
+  --color-subcontent: var(--theme-light-subcontent);
+  --color-content-inverse: var(--theme-light-content-inverse);
+  --color-subcontent-inverse: var(--theme-light-subcontent-inverse);
+  --color-info: var(--theme-light-info);
+  --color-success: var(--theme-light-success);
+  --color-warning: var(--theme-light-warning);
+  --color-error: var(--theme-light-error);
+
+  --color-outline: var(--theme-light-outline);
+  --outline-target: var(--theme-light-outline-target);
+  --outline-strength: var(--theme-light-outline-strength);
 }
 
 /* Dark colors */
@@ -112,6 +149,21 @@
     --outline-target: var(--color-light);
     --outline-strength: 24%;
   }
+}
+
+/* Theme fill sources */
+
+[data-theme="light"],
+[data-theme="dark"] {
+  --surface-primary: var(--color-primary);
+  --surface-secondary: var(--color-secondary);
+  --surface-content: var(--color-content);
+  --surface-subcontent: var(--color-subcontent);
+  --surface-brand: var(--color-brand);
+  --surface-info: var(--color-info);
+  --surface-success: var(--color-success);
+  --surface-warning: var(--color-warning);
+  --surface-error: var(--color-error);
 }
 
 /* Adaptive surface colors */
@@ -274,7 +326,7 @@
     --surface-a: var(--color-primary);
     --surface-b: var(--color-primary);
     --surface-fill: var(--color-primary);
-    --outline-strength: 22%;
+    --outline-strength: var(--theme-light-outline-strength);
     --field-motion: 150ms;
   }
 }
@@ -440,12 +492,12 @@
 @custom-variant phx-change-loading (.phx-change-loading&, .phx-change-loading &);
 
 @custom-variant dark {
-  &:where([data-theme=dark], [data-theme=dark] *) {
+  @scope ([data-theme="dark"]) to ([data-theme="light"]) {
     @slot;
   }
 
   @media (prefers-color-scheme: dark) {
-    &:where(:root:not([data-theme]), :root:not([data-theme]) *) {
+    @scope (:root:not([data-theme])) to ([data-theme="light"]) {
       @slot;
     }
   }
@@ -551,7 +603,7 @@
 }
 
 @utility button-primary {
-  @apply border border-brand bg-brand text-content-inverse dark:text-content shadow-button hover:overlay-dark focus:border-brand active:shadow-none disabled:shadow-none;
+  @apply border border-brand bg-brand text-brand-content shadow-button hover:overlay-dark focus:border-brand active:shadow-none disabled:shadow-none;
 }
 
 @utility button-neutral {
@@ -1579,7 +1631,7 @@ input[type="file"]::file-selector-button {
 [data-vc=calendar][data-vc-theme] [data-vc-date-weekend][data-vc-date-selected] .vc-date__btn,
 [data-vc=calendar][data-vc-theme] [data-vc-date-selected] .vc-date__btn:hover,
 [data-vc=calendar][data-vc-theme] [data-vc-date-weekend][data-vc-date-selected] .vc-date__btn:hover {
-  @apply bg-brand text-content-inverse dark:text-content;
+  @apply bg-brand text-brand-content;
 }
 
 /* Calendar week selection */
@@ -1604,7 +1656,7 @@ input[type="file"]::file-selector-button {
   cursor: pointer;
 }
 [data-vc=calendar][data-vc-theme] [data-vc-week-number][data-vc-week-selected] {
-  @apply bg-brand text-content-inverse dark:text-content;
+  @apply bg-brand text-brand-content;
 }
 
 /* Calendar month and year selection */
@@ -1625,7 +1677,7 @@ input[type="file"]::file-selector-button {
 }
 [data-vc=calendar][data-vc-theme] [data-vc-months-month-selected],
 [data-vc=calendar][data-vc-theme] [data-vc-years-year-selected] {
-  @apply bg-brand text-content-inverse dark:text-content;
+  @apply bg-brand text-brand-content;
 }
 
 /* Calendar time controls */

@@ -1,0 +1,44 @@
+@font-face {
+  font-family: "able-5";
+  src: url("/fonts/able-5/able-5.ttf") format("truetype");
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+}
+
+.qr-title {
+  font-family: "able-5", monospace;
+  font-weight: 400;
+  font-size: 4rem;
+  line-height: 1.1;
+}
+
+.qr-version-label {
+  font-family: "quanta-strike-6", monospace;
+  font-weight: 400;
+  font-size: 1.25rem;
+  line-height: 1;
+}
+
+.qr-byline {
+  font-family: "quanta-strike-6", monospace;
+  font-weight: 400;
+  font-size: 1rem;
+  line-height: 1.25;
+}
+
+.qr-scroll {
+  scrollbar-width: thin;
+  scrollbar-color: var(--color-content) transparent;
+  overscroll-behavior: contain;
+  scrollbar-gutter: stable;
+}
+
+.qr-version[aria-pressed="true"] > :first-child {
+  outline: 2px solid var(--color-content);
+  outline-offset: 3px;
+}
+
+#qr-workspace [hidden] {
+  display: none;
+}

@@ -65,7 +65,7 @@ export default function initTooltips() {
       if (owner.matches("input[type=password], input[type=file]")) continue
       const style = getComputedStyle(owner)
       if (style.overflowX === "auto" || style.overflowX === "scroll" ||
-        style.overflowY === "auto" || style.overflowY === "scroll") continue
+        style.overflowY === "auto" || style.overflowY === "scroll") break
       const clipsX = (style.overflowX === "hidden" || style.overflowX === "clip") && owner.scrollWidth > owner.clientWidth
       const clipsY = (style.overflowY === "hidden" || style.overflowY === "clip" || Number(style.webkitLineClamp) > 0) && owner.scrollHeight > owner.clientHeight
       if (!clipsX && !clipsY) continue

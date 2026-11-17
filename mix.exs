@@ -19,7 +19,7 @@ defmodule OpenQR.MixProject do
         plt_core_path: "priv/plts/core.plt",
         plt_file: {:no_warn, "priv/plts/project.plt"},
         list_unused_filters: true,
-        plt_add_apps: [:ex_unit]
+        plt_add_apps: [:ex_unit, :mix]
       ],
       releases: releases(),
       docs: [

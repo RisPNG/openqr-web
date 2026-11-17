@@ -8,6 +8,7 @@ import Config
 config :elixir, :time_zone_database, Tz.TimeZoneDatabase
 
 config :openqr,
+  default_qr_payload: "https://openqr.my",
   upload_directory: Path.expand("../var/uploads/public", __DIR__)
 
 config :openqr, OpenQR.Scheduler, jobs: []
@@ -118,7 +119,7 @@ config :esbuild,
   version: "0.28.2",
   openqr: [
     args:
-      ~w(app=js/app.js --bundle --format=esm --splitting --legal-comments=linked --target=es2022 --outdir=../priv/static/assets --external:/fonts/* --external:/images/* --alias:@=.),
+      ~w(app=js/app.js qr-scanner-worker=js/qr_scanner_worker.js --bundle --format=esm --splitting --legal-comments=linked --target=es2022 --outdir=../priv/static/assets --public-path=/assets --loader:.wasm=file --external:/fonts/* --external:/images/* --alias:@=.),
     cd: Path.expand("../assets", __DIR__),
     env: %{
       "NODE_PATH" =>

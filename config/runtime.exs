@@ -18,6 +18,12 @@ config :openqr, OpenQRWeb.Endpoint,
 
 if config_env() == :prod do
   config :openqr,
+    default_qr_directory:
+      System.get_env("DEFAULT_QR_DIRECTORY") ||
+        if(System.get_env("RELEASE_ROOT"),
+          do: Application.app_dir(:openqr, "priv/qr_defaults"),
+          else: Path.expand("../var/qr_defaults", __DIR__)
+        ),
     upload_directory:
       System.get_env("UPLOAD_DIRECTORY") ||
         raise("Missing environment variable `UPLOAD_DIRECTORY` for public uploads!")

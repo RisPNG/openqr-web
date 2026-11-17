@@ -1,1 +1,54 @@
-{@inner_content}
+<div class="index-frame bg-brand-frame">
+  <div class="index-shell relative isolate grid grid-rows-[minmax(0,1fr)_auto] overflow-hidden bg-brand text-brand-content">
+    <svg
+      class="pointer-events-none absolute inset-0 size-full text-brand-pattern"
+      viewBox="0 0 2520 1350"
+      preserveAspectRatio="xMidYMid slice"
+      fill="currentColor"
+      aria-hidden="true"
+      focusable="false"
+    >
+      <path d="M-100-100H390a100 100 0 0 1 100 100v295a100 100 0 0 1-100 100H-100V295h415a60 60 0 0 0 60-60V-100Z" />
+      <rect x="90" y="20" width="200" height="180" rx="60" />
+      <rect x="530" y="80" width="305" height="85" rx="43" />
+      <circle cx="85" cy="540" r="52" />
+      <path d="M2280 130a52 52 0 0 1 52 52v215h48v-44a60 60 0 0 1 60-60h180v100h-130v98h-373a50 50 0 0 1-50-50v-61a55 55 0 0 1 55-55h106V182a52 52 0 0 1 52-52Z" />
+      <path d="M2280 545h140a50 50 0 0 1 50 50v-8a50 50 0 0 1 50-50h100v278h-50a50 50 0 0 1-50-50V615h-240a35 35 0 0 1-35-35 35 35 0 0 1 35-35Z" />
+      <circle cx="2130" cy="785" r="50" />
+      <path d="M-100 1040H65a160 160 0 0 1 160 160v250H125v-255a60 60 0 0 0-60-60H-100Z" />
+      <circle cx="530" cy="1190" r="50" />
+      <circle cx="530" cy="1350" r="45" />
+      <rect x="1855" y="1190" width="190" height="85" rx="43" />
+      <circle cx="2175" cy="1205" r="50" />
+      <path d="M2425 1150h195v100h-160v200h-100v-225a75 75 0 0 1 75-75Z" />
+    </svg>
+
+    <main id="main-content" class="relative grid min-h-0 min-w-0 overflow-hidden">
+      {@inner_content}
+    </main>
+
+    <footer class="relative grid grid-cols-[minmax(0,1fr)_auto] items-end gap-6 p-6">
+      <p class="text-sm leading-5 font-medium text-brand-frame">
+        Powered by
+        <.link
+          href="https://github.com/rispng/openqr"
+          class="rounded-sm font-semibold underline underline-offset-4 focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-brand-frame"
+        >OpenQR Engine</.link>
+      </p>
+
+      <.link
+        href="https://poppybit.com"
+        aria-label="Poppybit"
+        class="grid grid-cols-[2rem_max-content] items-center gap-2 rounded-xl bg-brand-frame px-4 py-2 focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-content"
+      >
+        <img src={~p"/images/poppybit.png"} width="32" height="32" alt="" />
+        <span
+          aria-hidden="true"
+          class="index-wordmark grid h-8 grid-cols-[max-content_max-content] items-end font-normal text-brand-wordmark"
+        >
+          <span class="-translate-y-[calc(1em/6)]">Poppy</span><sub class="static text-lg leading-none">bit</sub>
+        </span>
+      </.link>
+    </footer>
+  </div>
+</div>

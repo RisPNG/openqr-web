@@ -49,6 +49,7 @@ defmodule OpenQRWeb.CoreFoundationsTest do
 
     assert Floki.find(document, "input[name=contact][value=phone][checked]") != []
     assert Floki.find(document, "input[value=email][checked]") == []
+    assert Floki.find(document, "input[type=radio][aria-label], label[title]") == []
   end
 
   test "radio cards retain native choices with descriptions, required values, and disabled options" do
@@ -115,6 +116,119 @@ defmodule OpenQRWeb.CoreFoundationsTest do
       assert Floki.find(document, "input[value=standard][checked][disabled]") != []
       assert Floki.find(document, "input[type=radio]:not([disabled])") == []
       assert Floki.text(document) =~ "More capacity"
+    end
+  end
+
+  test "radio option media retains accessible native selection and disabled choices" do
+    for disabled <- [false, true] do
+      assigns = %{
+        form: to_form(%{"shape" => "circle"}, as: :qr),
+        disabled: disabled
+      }
+
+      document =
+        rendered_to_string(~H"""
+        <CoreComponents.input
+          field={@form[:shape]}
+          id="shape"
+          type="radio"
+          variant="card"
+          label="Body shape"
+          options={[
+            {"Circle", "circle", description: "Soft outline", data: %{preview: "/circle.svg"}},
+            {"Square", "square", description: "Hard outline", disabled: true,
+             data: %{preview: "/square.svg"}},
+            {"Follow body", "follow-body"}
+          ]}
+          options_class="preview-options grid grid-cols-[1fr_1fr_1fr] gap-2"
+          option_class="preview-option grid aspect-square"
+          clear_button={false}
+          disabled={@disabled}
+          required
+        >
+          <:option :let={option}>
+            <figure>
+              <img :if={option.data} src={option.data.preview} alt="" />
+              <figcaption :if={option.description}>
+                {option.description}{if option.disabled, do: " (unavailable)"}
+              </figcaption>
+              <span :if={!option.data}>{option.label}</span>
+            </figure>
+          </:option>
+        </CoreComponents.input>
+        """)
+        |> Floki.parse_document!()
+
+      assert Floki.find(document, "fieldset#shape legend") |> Floki.text() =~ "Body shape"
+
+      assert Floki.find(
+               document,
+               "input[name='qr[shape]'][value=circle][checked][required][aria-label=Circle]"
+             ) != []
+
+      assert length(Floki.find(document, "input[type=radio][checked]")) == 1
+      assert Floki.find(document, "input[value=square][disabled]:not([checked])") != []
+
+      assert length(Floki.find(document, "input[type=radio][disabled]")) ==
+               if(disabled, do: 3, else: 1)
+
+      assert Floki.find(document, "input[type=hidden]") == []
+      assert length(Floki.find(document, "label.preview-option")) == 3
+      assert Floki.find(document, "label[title=Circle] img[src='/circle.svg'][alt='']") != []
+
+      assert Floki.find(document, "label[title=Circle]") |> Floki.text() |> String.trim() ==
+               "Soft outline"
+
+      assert Floki.find(document, "label[title=Square] figcaption") |> Floki.text() =~
+               "Hard outline (unavailable)"
+
+      assert Floki.find(document, "label[title='Follow body']") |> Floki.text() =~ "Follow body"
+    end
+  end
+
+  test "custom radio media preserves display and hidden submission modes" do
+    for render_as <- ~w(like-enabled text hidden hidden-disabled) do
+      assigns = %{render_as: render_as}
+
+      document =
+        rendered_to_string(~H"""
+        <CoreComponents.input
+          id="shape"
+          name="shape"
+          type="radio"
+          variant="card"
+          value="circle"
+          options={[{"Circle", "circle", data: %{preview: "/circle.svg"}}, {"Square", "square"}]}
+          render_as={@render_as}
+        >
+          <:option :let={option}>
+            <img :if={option.data} src={option.data.preview} alt="" />
+            <span :if={!option.data}>{option.label}</span>
+          </:option>
+        </CoreComponents.input>
+        """)
+        |> Floki.parse_document!()
+
+      case render_as do
+        "like-enabled" ->
+          assert Floki.find(document, "input") == []
+
+          assert Floki.find(
+                   document,
+                   "label[role=radio][aria-checked=true][aria-label=Circle] img"
+                 ) != []
+
+          assert Floki.find(document, "label[role=radio][aria-checked=false][aria-label=Square]") !=
+                   []
+
+        mode when mode in ["text", "hidden"] ->
+          assert Floki.find(document, ".hidden input[name=shape][value=circle][checked]") != []
+          assert Floki.find(document, ".hidden label[title=Circle] img[src='/circle.svg']") != []
+          assert length(Floki.find(document, ".hidden input[type=radio]")) == 2
+
+        "hidden-disabled" ->
+          assert Floki.find(document, "input, img, label") == []
+      end
     end
   end
 
@@ -403,6 +517,31 @@ defmodule OpenQRWeb.CoreFoundationsTest do
 
     assert Floki.find(document, "#confirm-title") |> Floki.text() |> String.trim() ==
              "Confirm deletion"
+
+    assert [remove] = Floki.attribute(document, "#confirm", "phx-remove")
+    assert Jason.decode!(remove) == [["pop_focus", %{}]]
+  end
+
+  test "modal returns focus to its caller after restoring the captured focus" do
+    assigns = %{}
+
+    document =
+      rendered_to_string(~H"""
+      <CoreComponents.button id="open-preview" type="button">Preview</CoreComponents.button>
+      <CoreComponents.modal id="preview" return_focus="#open-preview">
+        <:title>QR preview</:title>
+        <CoreComponents.button type="button">Download</CoreComponents.button>
+      </CoreComponents.modal>
+      """)
+      |> Floki.parse_document!()
+
+    assert Floki.find(document, "button#open-preview") != []
+    assert [remove] = Floki.attribute(document, "#preview", "phx-remove")
+
+    assert Jason.decode!(remove) == [
+             ["pop_focus", %{}],
+             ["focus", %{"to" => "#open-preview"}]
+           ]
   end
 end
 

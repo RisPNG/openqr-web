@@ -1,0 +1,23 @@
+@font-face {
+  font-family: "quanta-strike-6";
+  src: url("/fonts/quanta-strike/quanta-strike-6-regular.woff2") format("woff2");
+  font-weight: 400;
+  font-style: normal;
+  font-display: swap;
+}
+
+.index-frame {
+  height: 100svh;
+  padding: 0.875rem;
+}
+
+.index-shell {
+  height: calc(100svh - 1.75rem);
+  border-radius: 1.75rem;
+}
+
+.index-wordmark {
+  font-family: "quanta-strike-6", monospace;
+  font-size: 2rem;
+  line-height: 1;
+}
