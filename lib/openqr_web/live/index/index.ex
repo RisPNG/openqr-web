@@ -46,7 +46,9 @@ defmodule OpenQRWeb.IndexLive.Index do
         reference: nil,
         background: nil,
         reference_name: nil,
-        background_name: nil
+        background_name: nil,
+        reference_preview_ref: nil,
+        background_preview_ref: nil
       )
       |> allow_upload(:reference,
         accept: ~w(.png .jpg .jpeg .webp .gif .ico),
@@ -207,10 +209,10 @@ defmodule OpenQRWeb.IndexLive.Index do
     socket =
       case image do
         "reference" ->
-          assign(socket, reference: nil, reference_name: nil)
+          assign(socket, reference: nil, reference_name: nil, reference_preview_ref: nil)
 
         "background" ->
-          assign(socket, background: nil, background_name: nil)
+          assign(socket, background: nil, background_name: nil, background_preview_ref: nil)
       end
 
     {:noreply, socket}
@@ -241,8 +243,19 @@ defmodule OpenQRWeb.IndexLive.Index do
       else
         socket =
           case name do
-            :reference -> assign(socket, reference: bytes, reference_name: entry.client_name)
-            :background -> assign(socket, background: bytes, background_name: entry.client_name)
+            :reference ->
+              assign(socket,
+                reference: bytes,
+                reference_name: entry.client_name,
+                reference_preview_ref: entry.ref
+              )
+
+            :background ->
+              assign(socket,
+                background: bytes,
+                background_name: entry.client_name,
+                background_preview_ref: entry.ref
+              )
           end
 
         {:noreply, socket}

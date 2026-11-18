@@ -317,6 +317,19 @@ const FileInput = {
     }
     const links = surface?.querySelectorAll("[data-file-open][data-entry-ref]") || []
     const refs = new Set(Array.from(links, link => link.dataset.entryRef))
+    const outlet = this.binding.preview?.el.closest("[data-file-retain-upload]")
+    const acceptedRef = outlet?.dataset.fileAcceptedRef
+    if (acceptedRef) refs.add(acceptedRef)
+    if (outlet) {
+      for (const file of this.files) {
+        if (file._phxRef === undefined) continue
+        refs.add(file._phxRef)
+        if (!this.uploadUrls.has(file._phxRef)) this.uploadUrls.set(file._phxRef, URL.createObjectURL(file))
+      }
+      const image = outlet.parentElement.querySelector("[data-file-accepted-preview]")
+      const url = this.uploadUrls.get(acceptedRef)
+      if (image && url && image.getAttribute("src") !== url) image.src = url
+    }
     for (const [ref, url] of this.uploadUrls) {
       if (!refs.has(ref)) {
         URL.revokeObjectURL(url)

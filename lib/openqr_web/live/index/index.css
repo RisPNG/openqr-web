@@ -40,6 +40,17 @@
   font-size: 0.625rem;
 }
 
+#qr-artwork [data-file-preview-outlet] [data-file-remove] {
+  @apply z-10 bg-primary opacity-100 pointer-events-auto;
+}
+
+#qr-scanner {
+  --qr-scanner-width: round(down, min(100%, var(--container-4xl)), 4px);
+  @apply mx-auto max-w-4xl;
+  width: var(--qr-scanner-width);
+  margin-inline-start: round(down, (100% - var(--qr-scanner-width)) / 2, 1px);
+}
+
 .qr-version[aria-pressed="true"] > :first-child {
   outline: 2px solid var(--color-content);
   outline-offset: 3px;

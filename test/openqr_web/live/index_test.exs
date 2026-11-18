@@ -277,6 +277,12 @@ defmodule OpenQRWeb.IndexLiveTest do
     render_upload(upload, "reference.png")
     render_async(view, 30_000)
     assert has_element?(view, "#qr-options", "reference.png")
+
+    assert has_element?(
+             view,
+             "#qr-reference-square img[alt='Reference image preview: reference.png'][data-file-accepted-preview]"
+           )
+
     assert gallery_previews(view) == initial
 
     render_change(view, "change", %{"qr" => %{"body_shape" => "circle"}})
@@ -306,6 +312,7 @@ defmodule OpenQRWeb.IndexLiveTest do
     |> render_click()
 
     render_async(view, 30_000)
+    refute has_element?(view, "#qr-reference-square img")
     assert gallery_previews(view) == before_removal
   end
 
@@ -425,6 +432,12 @@ defmodule OpenQRWeb.IndexLiveTest do
 
     render_upload(upload, "background.png")
     render_async(view, 30_000)
+
+    assert has_element?(
+             view,
+             "#qr-background-square img[alt='Background image preview: background.png'][data-file-accepted-preview]"
+           )
+
     assert gallery_previews(view) == generated
 
     render_click(view, "select-version", %{"version" => "4"})
@@ -444,6 +457,7 @@ defmodule OpenQRWeb.IndexLiveTest do
     |> element("button[phx-click='remove-image'][phx-value-image='background']")
     |> render_click()
 
+    refute has_element?(view, "#qr-background-square img")
     assert gallery_previews(view) == generated
 
     view |> form("#qr-options") |> render_submit()
@@ -477,8 +491,12 @@ defmodule OpenQRWeb.IndexLiveTest do
       ])
 
     render_upload(upload, "reference.png", 10)
-    view |> element("button[phx-click='cancel_upload']") |> render_click()
-    refute has_element?(view, "button[phx-click='cancel_upload']")
+    [%{"ref" => ref}] = upload.entries
+    assert has_element?(view, "input[name='reference'][data-phx-active-refs='#{ref}']")
+
+    render_click(view, "cancel_upload", %{"ref" => ref})
+    assert has_element?(view, "input[name='reference'][data-phx-active-refs='']")
+    refute has_element?(view, "#qr-reference-square [data-file-accepted-preview]")
   end
 
   test "ignores completed work queued after a modal closes or a cached gallery replaces it" do
