@@ -447,7 +447,7 @@
       <header>
         <h2 id="scanner-title" class="text-lg font-semibold">Scan a QR code</h2>
         <p class="mt-1 text-sm leading-6 text-subcontent">
-          Choose an image or start your camera. Images and camera frames stay in this browser.
+          Choose an image or start your camera. Successful scans save the image and decoded text in this browser.
         </p>
       </header>
       <div class="grid grid-cols-[1fr_1fr] gap-4">
@@ -499,7 +499,12 @@
         Ready to scan.
       </p>
       <p data-scan-announcement role="status" class="sr-only"></p>
-      <p data-scan-history-warning role="status" class="text-sm leading-6 text-error empty:sr-only"></p>
+      <p
+        data-scan-history-warning
+        role="status"
+        class="text-sm leading-6 text-error empty:sr-only"
+      >
+      </p>
       <div data-scan-results class="grid gap-3"></div>
     </div>
   </section>
@@ -515,7 +520,7 @@
         <div>
           <h2 id="history-title" class="text-lg font-semibold">History</h2>
           <p class="mt-1 text-sm leading-6 text-subcontent">
-            Scanned text and downloaded QR codes are saved in this browser. Clearing browser data removes them.
+            Scanned text, scan images, and downloaded QR codes are saved in this browser. Clearing browser data removes them.
           </p>
         </div>
         <.button data-history-clear variant={:neutral} type="button" disabled>Clear history</.button>
@@ -535,7 +540,10 @@
       >
       </div>
       <template data-history-entry>
-        <article data-history-card class="grid min-w-0 gap-3 rounded-2xl border border-outline p-4">
+        <article
+          data-history-card
+          class="grid min-w-0 gap-3 rounded-2xl border border-outline p-4"
+        >
           <div class="relative aspect-square">
             <img
               data-history-image
@@ -549,28 +557,30 @@
               hidden
               class="absolute inset-0 grid place-items-center text-center text-xs text-subcontent"
             >
-              QR preview unavailable.
+              Original image unavailable.
             </p>
           </div>
           <div class="grid gap-1">
             <h3 data-history-title class="text-sm font-semibold"></h3>
-            <p data-history-payload class="whitespace-pre-wrap break-all text-xs leading-5 text-subcontent">
+            <p
+              data-history-payload
+              class="whitespace-pre-wrap break-all text-xs leading-5 text-subcontent"
+            >
             </p>
             <time data-history-date class="text-xs text-subcontent"></time>
           </div>
-          <div class="grid grid-cols-[minmax(0,1fr)_2.75rem] gap-2 has-[[data-history-open]]:grid-cols-[minmax(0,1fr)_minmax(0,1fr)_2.75rem]">
+          <div class="grid grid-cols-[minmax(0,1fr)_2.75rem] gap-2 has-[[data-history-open]]:grid-cols-[minmax(0,1fr)_2rem_2.75rem]">
             <.button data-history-download href="#" variant={:primary}>Download</.button>
-            <.button data-history-copy variant={:primary} type="button" class="px-1!">Copy</.button>
-            <.button
+            <.button data-history-copy variant={:primary} type="button">Copy</.button>
+            <a
               data-history-open
               href="#"
               target="_blank"
               rel="noopener noreferrer"
-              variant={:neutral}
-              class="px-1! whitespace-normal!"
-            >
-              Open link
-            </.button>
+              aria-label="Open link in a new tab"
+              title="Open link in a new tab"
+              class="grid min-h-11 place-items-center rounded-default text-brand hover:text-content focus-visible:outline-2 focus-visible:outline-brand"
+            ><.icon name="tabler-external-link" class="size-5" /></a>
             <.action_button action={:delete} data-history-remove tooltip="Remove from history" />
           </div>
         </article>

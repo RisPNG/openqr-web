@@ -59,7 +59,7 @@ test("download history persists exact bytes, deduplicates re-downloads, and keep
   assert.equal(changes, 3)
 })
 
-test("saving scans upgrades existing download history and only stores decoded text and time", async t => {
+test("saving scans preserves download history and shares exact source bytes across a scan batch", async t => {
   const {saveScans, entry} = await fixture()
   const legacy = {...entry, id: "legacy-download", downloadedAt: 1}
   await new Promise((resolve, reject) => {
@@ -73,16 +73,57 @@ test("saving scans upgrades existing download history and only stores decoded te
   })
   let now = 2
   t.mock.method(Date, "now", () => now)
-  await saveScans([{text: entry.payload, pixels: new Uint8Array([1, 2, 3])}, {text: "Another QR"}, {text: entry.payload}])
-  now++
-  await saveScans([{text: entry.payload}])
+  const source = new File([new Uint8Array([1, 2, 3])], "original.webp", {type: "image/webp"})
+  await saveScans([{text: entry.payload}, {text: "Another QR"}, {text: entry.payload}], source)
   const [download] = await entries()
   assert.equal(download.id, legacy.id)
   assert.equal(await download.artifact.text(), await entry.artifact.text())
+  const savedSources = await entries("scanSources")
+  assert.equal(savedSources.length, 1)
+  const [savedSource] = savedSources
+  assert.equal(savedSource.image.type, source.type)
+  assert.deepEqual(await savedSource.image.arrayBuffer(), await source.arrayBuffer())
   assert.deepEqual(await entries("scans"), [
-    {payload: entry.payload, scannedAt: 3},
-    {payload: "Another QR", scannedAt: 2},
+    {payload: entry.payload, scannedAt: 2, sourceId: savedSource.id},
+    {payload: "Another QR", scannedAt: 2, sourceId: savedSource.id},
   ])
+  now++
+  const replacement = new Blob([new Uint8Array([4, 5, 6])], {type: "image/png"})
+  await saveScans([{text: entry.payload}], replacement)
+  const [replaced, other] = await entries("scans")
+  assert.equal(replaced.scannedAt, 3)
+  assert.notEqual(replaced.sourceId, savedSource.id)
+  assert.equal(other.sourceId, savedSource.id)
+  assert.equal((await entries("scanSources")).length, 2)
+  now++
+  await saveScans([{text: entry.payload}, {text: "Another QR"}], replacement)
+  const latestSources = await entries("scanSources")
+  assert.equal(latestSources.length, 1)
+  const [latest] = latestSources
+  assert.deepEqual(await latest.image.arrayBuffer(), await replacement.arrayBuffer())
+  assert.deepEqual(await entries("scans"), [
+    {payload: entry.payload, scannedAt: 4, sourceId: latest.id},
+    {payload: "Another QR", scannedAt: 4, sourceId: latest.id},
+  ])
+})
+
+test("the most recent scan keeps its image when an earlier camera frame encodes slowly", async () => {
+  const {saveScans} = await fixture()
+  const scans = [{text: "lego.com"}]
+  await saveScans(scans, new Blob(["previous scan"], {type: "image/png"}))
+  const cameraFrame = Promise.withResolvers()
+  const savingFrame = saveScans(scans, cameraFrame.promise)
+  const upload = new Blob(["uploaded file"], {type: "image/webp"})
+  const savingUpload = saveScans(scans, upload)
+  await new Promise(setImmediate)
+  cameraFrame.resolve(new Blob(["camera frame"], {type: "image/png"}))
+  await Promise.all([savingFrame, savingUpload])
+  const [link] = await entries("scans")
+  const sources = await entries("scanSources")
+  assert.equal(sources.length, 1)
+  assert.equal(sources[0].id, link.sourceId)
+  assert.equal(sources[0].image.type, upload.type)
+  assert.equal(await sources[0].image.text(), await upload.text())
 })
 
 test("opening and updating export previews never creates history; only a download click does", async () => {
@@ -134,12 +175,26 @@ test("history storage failure leaves the export downloadable and reports the fai
 
 test("history shows latest scans and downloads, supports copying, re-download, removal and clear", async t => {
   const {QRHistory, saveDownload, saveScans, entry} = await fixture()
+  const legacyScan = {payload: "example.com", scannedAt: 0}
+  await new Promise((resolve, reject) => {
+    const request = indexedDB.open("openqr-downloads", 2)
+    request.onupgradeneeded = () => {
+      request.result.createObjectStore("downloads", {keyPath: "id"})
+      request.result.createObjectStore("scans", {keyPath: "payload"}).put(legacyScan)
+    }
+    request.onsuccess = () => {
+      request.result.close()
+      resolve()
+    }
+    request.onerror = () => reject(request.error)
+  })
   let now = 1
   t.mock.method(Date, "now", () => now)
   const scanned = "<b>Scanned literally</b>\nSecond line"
+  const source = new Blob(['<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 50"></svg>'], {type: "image/svg+xml"})
   await saveDownload(entry)
   now++
-  await saveScans([{text: scanned}])
+  await saveScans([{text: scanned}], source)
   now++
   await saveDownload({...entry, name: "openqr-v5.svg", version: 5})
   const copied = []
@@ -150,8 +205,29 @@ test("history shows latest scans and downloads, supports copying, re-download, r
   t.after(() => delete navigator.clipboard)
   const cards = []
   const previewImages = new Set()
+  const previewContents = new Uint8Array([1, 2, 3])
+  let originalUrl
+  globalThis.Image = class {
+    naturalWidth = 100
+    naturalHeight = 50
+
+    async decode() {
+      originalUrl = this.src
+      const original = await fetch(this.src)
+      assert.equal(original.headers.get("content-type"), source.type)
+      assert.equal(await original.text(), await source.text())
+    }
+  }
+  t.after(() => delete globalThis.Image)
+  document.createElement = () => ({
+    getContext() {return {drawImage() {}}},
+    toBlob(callback) {callback(new Blob([previewContents], {type: "image/png"}))},
+  })
+  let revealPreview
   globalThis.IntersectionObserver = class {
+    constructor(callback) {revealPreview = image => callback([{target: image, isIntersecting: true}])}
     observe(image) {previewImages.add(image)}
+    unobserve(image) {previewImages.delete(image)}
     disconnect() {previewImages.clear()}
   }
   t.after(() => delete globalThis.IntersectionObserver)
@@ -159,6 +235,7 @@ test("history shows latest scans and downloads, supports copying, re-download, r
     get children() {return cards.map(card => card.querySelector("[data-history-card]"))},
     replaceChildren() {cards.length = 0},
     appendChild(card) {cards.push(card)},
+    contains(image) {return cards.some(card => card.querySelector("[data-history-image]") === image)},
     querySelectorAll(selector) {return cards.map(card => card.querySelector(selector))},
   }
   const status = {textContent: ""}
@@ -173,6 +250,9 @@ test("history shows latest scans and downloads, supports copying, re-download, r
         focus() {document.activeElement = this},
       })
     }
+    const image = fields.get("[data-history-image]")
+    image.parentElement = {remove() {image.remove()}}
+    image.closest = selector => fields.get(selector)
     return {querySelector: selector => fields.get(selector)}
   }}}
   const root = new EventTarget()
@@ -184,12 +264,21 @@ test("history shows latest scans and downloads, supports copying, re-download, r
     return null
   }}})
   hook.mounted()
-  await until(() => cards.length === 3)
+  await until(() => cards.length === 4)
   assert.match(cards[0].querySelector("[data-history-title]").textContent, /Version 5/)
   assert.equal(cards[0].querySelector("[data-history-payload]").textContent, entry.payload)
   assert.equal(cards[1].querySelector("[data-history-title]").textContent, "Scanned QR code")
   assert.equal(cards[1].querySelector("[data-history-payload]").textContent, scanned)
-  assert.ok(previewImages.has(cards[1].querySelector("[data-history-image]")))
+  const scanImage = cards[1].querySelector("[data-history-image]")
+  assert.ok(previewImages.has(scanImage))
+  revealPreview(scanImage)
+  await until(() => scanImage.src)
+  const preview = await fetch(scanImage.src)
+  assert.equal(preview.headers.get("content-type"), "image/png")
+  assert.deepEqual(new Uint8Array(await preview.arrayBuffer()), previewContents)
+  await assert.rejects(fetch(originalUrl))
+  assert.equal(cards[3].querySelector("[data-history-payload]").textContent, legacyScan.payload)
+  assert.equal(cards[3].querySelector("[data-history-image]"), undefined)
   assert.equal(cards[1].querySelector("[data-history-open]"), undefined)
   assert.equal(cards[1].querySelector("[data-history-download]"), undefined)
   assert.equal(cards[0].querySelector("[data-history-open]"), undefined)
@@ -205,22 +294,30 @@ test("history shows latest scans and downloads, supports copying, re-download, r
   assert.equal((await entries()).length, 2)
   cards[2].querySelector("[data-history-remove]").focus()
   await click("remove", cards[2])
-  await until(() => cards.length === 2)
-  assert.equal(document.activeElement, cards[1].querySelector("[data-history-remove]"))
-  assert.equal(status.textContent, "2 saved entries.")
-  assert.equal((await entries("scans")).length, 0)
+  await until(() => cards.length === 3)
+  assert.equal(document.activeElement, cards[2].querySelector("[data-history-remove]"))
+  assert.equal(status.textContent, "3 saved entries.")
+  assert.deepEqual(await entries("scans"), [legacyScan])
+  assert.equal((await entries("scanSources")).length, 0)
+  await assert.rejects(fetch(scanImage.src))
   await click("remove", cards[0])
-  await until(() => cards.length === 1)
+  await until(() => cards.length === 2)
   assert.equal((await entries()).length, 1)
   now++
-  await saveScans([{text: "lego.com"}])
-  await until(() => cards.length === 2)
+  await saveScans([{text: "lego.com"}], source)
+  await until(() => cards.length === 3)
   assert.equal(cards[0].querySelector("[data-history-payload]").textContent, "lego.com")
   assert.equal(cards[0].querySelector("[data-history-open]").href, "https://lego.com/")
-  await click("clear")
+  const pendingFrame = Promise.withResolvers()
+  const savingFrame = saveScans([{text: "camera scan before clear"}], pendingFrame.promise)
+  const clearing = click("clear")
+  await new Promise(setImmediate)
+  pendingFrame.resolve(new Blob(["camera frame"], {type: "image/png"}))
+  await Promise.all([savingFrame, clearing])
   await until(() => cards.length === 0)
   assert.equal((await entries()).length, 0)
   assert.equal((await entries("scans")).length, 0)
+  assert.equal((await entries("scanSources")).length, 0)
   assert.equal(clear.disabled, true)
   assert.equal(status.textContent, "No history yet.")
   hook.destroyed()

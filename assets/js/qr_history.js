@@ -1,15 +1,21 @@
 import {websiteUrl} from "./qr_links.js"
 
 let database
-const historyStores = ["downloads", "scans"]
+let historyWrite = Promise.resolve()
+const entryStores = ["downloads", "scans"]
+const scanStores = ["scans", "scanSources"]
 
 function openHistory() {
   if (!database) database = new Promise((resolve, reject) => {
-    const request = indexedDB.open("openqr-downloads", 2)
+    const request = indexedDB.open("openqr-downloads", 3)
     let failed = false
     request.onupgradeneeded = event => {
       if (event.oldVersion === 0) request.result.createObjectStore("downloads", {keyPath: "id"})
-      request.result.createObjectStore("scans", {keyPath: "payload"})
+      const scans = event.oldVersion < 2
+        ? request.result.createObjectStore("scans", {keyPath: "payload"})
+        : request.transaction.objectStore("scans")
+      scans.createIndex("sourceId", "sourceId")
+      request.result.createObjectStore("scanSources", {keyPath: "id", autoIncrement: true})
     }
     request.onblocked = () => {
       failed = true
@@ -31,33 +37,68 @@ function openHistory() {
   return database
 }
 
-export async function saveDownload(entry) {
-  const digest = await crypto.subtle.digest("SHA-256", await entry.artifact.arrayBuffer())
-  const hash = Array.from(new Uint8Array(digest), byte => byte.toString(16).padStart(2, "0")).join("")
-  const db = await openHistory()
-  await new Promise((resolve, reject) => {
-    const transaction = db.transaction("downloads", "readwrite")
-    transaction.objectStore("downloads").put({...entry, id: `${entry.name}:${hash}`, downloadedAt: Date.now()})
-    transaction.oncomplete = resolve
-    transaction.onabort = () => reject(transaction.error)
+function updateHistory(mutate) {
+  const write = historyWrite.then(openHistory).then(mutate).then(() => {
+    document.dispatchEvent(new Event("openqr:history-changed"))
   })
-  document.dispatchEvent(new Event("openqr:history-changed"))
+  historyWrite = write.catch(() => {})
+  return write
 }
 
-export async function saveScans(results) {
+export function saveDownload(entry) {
+  const downloadedAt = Date.now()
+  return updateHistory(async db => {
+    const digest = await crypto.subtle.digest("SHA-256", await entry.artifact.arrayBuffer())
+    const hash = Array.from(new Uint8Array(digest), byte => byte.toString(16).padStart(2, "0")).join("")
+    await new Promise((resolve, reject) => {
+      const transaction = db.transaction("downloads", "readwrite")
+      transaction.objectStore("downloads").put({...entry, id: `${entry.name}:${hash}`, downloadedAt})
+      transaction.oncomplete = resolve
+      transaction.onabort = () => reject(transaction.error)
+    })
+  })
+}
+
+export async function saveScans(results, capturedImage) {
   if (results.length === 0) return
-  const db = await openHistory()
   const scannedAt = Date.now()
-  await new Promise((resolve, reject) => {
-    const transaction = db.transaction("scans", "readwrite")
-    const store = transaction.objectStore("scans")
-    for (const payload of new Set(results.map(result => result.text))) {
-      store.put({payload, scannedAt})
-    }
-    transaction.oncomplete = resolve
+  const capture = Promise.resolve(capturedImage).catch(() => null)
+  return updateHistory(async db => {
+    const image = await capture
+    if (!image) throw new Error("Scan image could not be saved")
+    await new Promise((resolve, reject) => {
+      const transaction = db.transaction(scanStores, "readwrite")
+      const scans = transaction.objectStore("scans")
+      const source = transaction.objectStore("scanSources").add({image})
+      source.onsuccess = () => {
+        for (const payload of new Set(results.map(result => result.text))) {
+          const previous = scans.get(payload)
+          scans.put({payload, scannedAt, sourceId: source.result})
+          previous.onsuccess = () => deleteUnusedScanSource(transaction, previous.result?.sourceId)
+        }
+      }
+      transaction.oncomplete = resolve
+      transaction.onabort = () => reject(transaction.error)
+    })
+  })
+}
+
+async function loadScanSource(sourceId) {
+  const db = await openHistory()
+  return new Promise((resolve, reject) => {
+    const transaction = db.transaction("scanSources", "readonly")
+    const source = transaction.objectStore("scanSources").get(sourceId)
+    transaction.oncomplete = () => resolve(source.result?.image)
     transaction.onabort = () => reject(transaction.error)
   })
-  document.dispatchEvent(new Event("openqr:history-changed"))
+}
+
+function deleteUnusedScanSource(transaction, sourceId) {
+  if (sourceId === undefined) return
+  const references = transaction.objectStore("scans").index("sourceId").count(sourceId)
+  references.onsuccess = () => {
+    if (references.result === 0) transaction.objectStore("scanSources").delete(sourceId)
+  }
 }
 
 export const QRDownloads = {
@@ -101,6 +142,7 @@ export const QRHistory = {
   mounted() {
     this.sequence = 0
     this.urls = []
+    this.sourcePreviews = new Map()
     this.entries = new WeakMap()
     this.status = this.el.querySelector("[data-history-status]")
     this.list = this.el.querySelector("[data-history-list]")
@@ -110,18 +152,36 @@ export const QRHistory = {
       for (const {target, isIntersecting} of observations) {
         if (!isIntersecting || !this.list.contains(target)) continue
         this.previewObserver.unobserve(target)
-        const {payload} = this.entries.get(target.closest("[data-history-card]"))
-        import("./qr_history_preview.js").then(({scanPreview}) => {
-          if (!this.disposed && this.list.contains(target)) return scanPreview(payload)
-        }).then(blob => {
-          if (!blob || this.disposed || !this.list.contains(target)) return
-          const url = URL.createObjectURL(blob)
-          this.urls.push(url)
-          target.src = url
-        }).catch(() => {
-          if (!this.disposed && this.list.contains(target)) {
-            target.parentElement.querySelector("[data-history-preview-error]").hidden = false
-          }
+        const {sourceId} = this.entries.get(target.closest("[data-history-card]"))
+        const previews = this.sourcePreviews
+        if (!previews.has(sourceId)) {
+          previews.set(sourceId, loadScanSource(sourceId).then(async source => {
+            if (!source || this.disposed || previews !== this.sourcePreviews) return null
+            const image = new Image()
+            const originalUrl = URL.createObjectURL(source)
+            try {
+              image.src = originalUrl
+              await image.decode()
+              if (this.disposed || previews !== this.sourcePreviews) return null
+              const scale = Math.min(1, 640 / Math.max(image.naturalWidth, image.naturalHeight))
+              const canvas = document.createElement("canvas")
+              canvas.width = Math.max(1, Math.round(image.naturalWidth * scale))
+              canvas.height = Math.max(1, Math.round(image.naturalHeight * scale))
+              canvas.getContext("2d").drawImage(image, 0, 0, canvas.width, canvas.height)
+              const preview = await new Promise(resolve => canvas.toBlob(resolve))
+              if (!preview || this.disposed || previews !== this.sourcePreviews) return null
+              const url = URL.createObjectURL(preview)
+              this.urls.push(url)
+              return url
+            } finally {
+              URL.revokeObjectURL(originalUrl)
+            }
+          }).catch(() => null))
+        }
+        previews.get(sourceId).then(url => {
+          if (this.disposed || !this.list.contains(target)) return
+          if (url) target.src = url
+          else target.parentElement.querySelector("[data-history-preview-error]").hidden = false
         })
       }
     })
@@ -146,19 +206,27 @@ export const QRHistory = {
         if (link && !event.defaultPrevented) {
           await saveDownload(entry)
         } else if (remove || clear) {
-          const db = await openHistory()
-          await new Promise((resolve, reject) => {
-            const stores = remove ? [entry.artifact ? "downloads" : "scans"] : historyStores
-            const transaction = db.transaction(stores, "readwrite")
-            if (remove) transaction.objectStore(stores[0]).delete(entry.id ?? entry.payload)
-            else for (const store of stores) transaction.objectStore(store).clear()
-            transaction.oncomplete = resolve
-            transaction.onabort = () => reject(transaction.error)
+          await updateHistory(async db => {
+            await new Promise((resolve, reject) => {
+              const stores = remove ? (entry.artifact ? ["downloads"] : scanStores) : ["downloads", ...scanStores]
+              const transaction = db.transaction(stores, "readwrite")
+              if (!remove) {
+                for (const store of stores) transaction.objectStore(store).clear()
+              } else if (entry.artifact) {
+                transaction.objectStore("downloads").delete(entry.id)
+              } else {
+                const scans = transaction.objectStore("scans")
+                const saved = scans.get(entry.payload)
+                scans.delete(entry.payload)
+                saved.onsuccess = () => deleteUnusedScanSource(transaction, saved.result?.sourceId)
+              }
+              transaction.oncomplete = resolve
+              transaction.onabort = () => reject(transaction.error)
+            })
+            if (remove && document.activeElement === remove) {
+              this.removedIndex = Array.prototype.indexOf.call(this.list.children, card)
+            }
           })
-          if (remove && document.activeElement === remove) {
-            this.removedIndex = Array.prototype.indexOf.call(this.list.children, card)
-          }
-          document.dispatchEvent(new Event("openqr:history-changed"))
         }
       } catch {
         if (!this.disposed) this.status.textContent = "Browser history could not be updated. Check available storage or browser privacy settings."
@@ -173,8 +241,8 @@ export const QRHistory = {
     try {
       const db = await openHistory()
       const entries = await new Promise((resolve, reject) => {
-        const transaction = db.transaction(historyStores, "readonly")
-        const requests = historyStores.map(store => transaction.objectStore(store).getAll())
+        const transaction = db.transaction(entryStores, "readonly")
+        const requests = entryStores.map(store => transaction.objectStore(store).getAll())
         transaction.oncomplete = () => resolve(requests.flatMap(request => request.result))
         transaction.onabort = () => reject(transaction.error)
       })
@@ -182,6 +250,7 @@ export const QRHistory = {
       this.previewObserver.disconnect()
       for (const url of this.urls) URL.revokeObjectURL(url)
       this.urls = []
+      this.sourcePreviews = new Map()
       this.list.replaceChildren()
       this.clear.disabled = entries.length === 0
       this.status.textContent = entries.length
@@ -209,7 +278,8 @@ export const QRHistory = {
           open.remove()
         } else {
           title.textContent = "Scanned QR code"
-          image.alt = "QR code for scanned text"
+          if (entry.sourceId === undefined) image.parentElement.remove()
+          else image.alt = "Image used for this scan"
           link.remove()
           const url = websiteUrl(entry.payload)
           if (url) open.href = url
@@ -221,7 +291,7 @@ export const QRHistory = {
         date.dateTime = new Date(recordedAt).toISOString()
         date.textContent = dateFormat.format(recordedAt)
         this.list.appendChild(card)
-        if (!entry.artifact) this.previewObserver.observe(image)
+        if (entry.sourceId !== undefined) this.previewObserver.observe(image)
       }
       if (this.removedIndex !== undefined) {
         const buttons = this.list.querySelectorAll("[data-history-remove]")

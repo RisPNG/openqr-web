@@ -103,6 +103,7 @@ const QRScanner = {
         const results = await this.decodeImage(this.video, this.video.videoWidth, this.video.videoHeight, 1600)
         if (this.disposed || generation !== this.generation) return
         if (results.length) {
+          this.recordScans(results, this.canvas)
           this.renderResults(results)
           this.status.textContent = `Found ${results.length} QR ${results.length === 1 ? "code" : "codes"}. Scanning continues.`
         }
@@ -148,6 +149,7 @@ const QRScanner = {
       }
       const results = await this.decodeImage(image, image.naturalWidth, image.naturalHeight, 2560, this.preview)
       if (this.disposed || generation !== this.generation) return
+      this.recordScans(results, file)
       this.renderResults(results)
       this.status.textContent = results.length > 1
         ? `Found ${results.length} QR codes.`
@@ -202,25 +204,29 @@ const QRScanner = {
     })
   },
 
-  renderResults(results) {
-    if (Date.now() >= this.historyRetryAt) {
-      const newScans = results.filter(({text}) => {
-        if (this.seenScans.has(text)) return false
-        this.seenScans.add(text)
-        return true
-      })
-      if (newScans.length) {
-        const generation = this.generation
-        saveScans(newScans).then(() => {
-          if (generation === this.generation) this.historyWarning.textContent = ""
-        }).catch(() => {
-          if (generation !== this.generation) return
-          for (const {text} of newScans) this.seenScans.delete(text)
-          this.historyRetryAt = Date.now() + 2000
-          this.historyWarning.textContent = "QR content was read, but could not be saved to history."
-        })
-      }
+  async recordScans(results, source) {
+    if (Date.now() < this.historyRetryAt) return
+    const newScans = results.filter(({text}) => {
+      if (this.seenScans.has(text)) return false
+      this.seenScans.add(text)
+      return true
+    })
+    if (!newScans.length) return
+
+    const generation = this.generation
+    try {
+      const image = source instanceof Blob ? source : new Promise(resolve => source.toBlob(resolve, "image/png"))
+      await saveScans(newScans, image)
+      if (generation === this.generation) this.historyWarning.textContent = ""
+    } catch {
+      if (generation !== this.generation) return
+      for (const {text} of newScans) this.seenScans.delete(text)
+      this.historyRetryAt = Date.now() + 2000
+      this.historyWarning.textContent = "QR content was read, but could not be saved to history."
     }
+  },
+
+  renderResults(results) {
     const serialized = JSON.stringify([this.scanSource, results])
     if (serialized === this.lastResults) return
     this.lastResults = serialized
