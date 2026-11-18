@@ -127,7 +127,7 @@ async function withScanner(options, run) {
   const hook = {
     ...QRScanner,
     el: {
-      dataset: {workerUrl: "/assets/qr-scanner-worker.js"},
+      dataset: {workerUrl: "/assets/qr-scanner-worker.js", fileSourceMaxSize: "2000000000"},
       querySelector: selector => elements[selector.match(/data-scan-([\w-]+)/)[1]],
     },
     pushEvent() { assert.fail("Decoded data must stay in the browser") },
@@ -271,7 +271,7 @@ test("a new file cancels old decoding, releases image URLs, and an empty image g
     await elements.file.emit("change")
     assert.equal(elements.preview.hidden, true)
     assert.equal(elements.preview.width, 0)
-    assert.equal(elements.status.textContent, "Ready to scan.")
+    assert.equal(elements.status.textContent, "")
   })
 })
 
@@ -332,14 +332,15 @@ test("camera scan history can recover from a temporarily blocked store without r
   })
 })
 
-test("oversized files are rejected and image decoding completing after removal cannot create a worker", async () => {
+test("files up to 2 GB can reach the decoder, and a removed file cannot create a worker", async () => {
   const decoding = Promise.withResolvers()
   await withScanner({}, async ({hook, workers, elements, images, created, revoked}) => {
-    await hook.scanFile({size: 26 * 1024 * 1024})
-    assert.match(elements.status.textContent, /25 MB/)
+    await hook.scanFile({size: 2_000_000_001})
+    assert.match(elements.status.textContent, /2 GB/)
     assert.equal(workers.length, 0)
     assert.equal(created.length, 0)
-    const pending = hook.scanFile({size: 100, decoding})
+    const pending = hook.scanFile({size: 2_000_000_000, decoding})
+    assert.equal(images[0].decodeCalls, 1)
     hook.destroyed()
     assert.equal(images[0].src, "")
     decoding.resolve()
@@ -366,8 +367,8 @@ test("PNG and SVG results preview locally and save the original files to history
       assert.equal(elements.preview.hidden, false)
       assert.equal(elements.status.textContent, "")
       assert.equal(elements.announcement.textContent, "QR code read.")
-      assert.equal(elements.results.children[0].children[0].textContent, "QR code")
-      assert.equal(elements.results.children[0].children[1].textContent, "https://openqr.my")
+      assert.equal(elements.results.children[0].children[0].textContent, "https://openqr.my")
+      assert.equal(elements.results.children[0].children[1].children.length, 2)
     }
     await new Promise(setImmediate)
     assert.deepEqual(revoked, created)

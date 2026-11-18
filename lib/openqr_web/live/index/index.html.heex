@@ -82,22 +82,19 @@
             </div>
             <.input field={@form[:ha_mr_url]} type="hidden" />
             <div class="grid grid-cols-[1fr_1fr] items-start subgap-3">
+              <.input
+                field={@form[:vary_url]}
+                type="checkbox"
+                variant="alt"
+                label="Allow URL hashing (i.e. google.com#abc123)"
+              />
               <div class="grid gap-2">
                 <.input
-                  field={@form[:vary_url]}
+                  field={@form[:ha_mr]}
                   type="checkbox"
                   variant="alt"
-                  label="Allow URL variants"
+                  label="Use ha.mr compressed link"
                 />
-                <p class="text-xs leading-5 text-subcontent">
-                  Adds a random #fragment to website addresses without one. Fragments can affect client-side routing.
-                </p>
-              </div>
-              <div class="grid gap-2">
-                <.input field={@form[:ha_mr]} type="checkbox" variant="alt" label="ha.mr link" />
-                <p class="text-xs leading-5 text-subcontent">
-                  Compresses the URL into a ha.mr redirect link.
-                </p>
                 <div
                   id="ha-mr-output"
                   data-ha-mr-output
@@ -122,17 +119,12 @@
 
               <div class="grid gap-4 pt-4">
                 <div class="grid grid-cols-[minmax(0,1fr)_minmax(0,1fr)] items-start subgap-3">
-                  <div class="grid gap-2">
-                    <.input
-                      field={@form[:auto_brand]}
-                      type="checkbox"
-                      variant="alt"
-                      label="Use the website icon when no image is attached"
-                    />
-                    <p class="text-xs leading-5 text-subcontent">
-                      Website icon lookup uses the internet. Uploaded images take priority.
-                    </p>
-                  </div>
+                  <.input
+                    field={@form[:auto_brand]}
+                    type="checkbox"
+                    variant="alt"
+                    label="Use the website icon when no image is attached"
+                  />
 
                   <.input
                     field={@form[:background_transparent]}
@@ -187,6 +179,7 @@
                         id={"qr-#{name}"}
                         upload={@uploads[name]}
                         label={label}
+                        data-file-source-max-size={@image_source_max_size}
                         placeholder="Choose a file"
                         preview={true}
                         editor={
@@ -228,10 +221,6 @@
                     disabled={@settings.background_transparent}
                   />
                 </div>
-
-                <p class="text-xs leading-5 text-subcontent">
-                  PNG, JPEG, WebP, or GIF. Up to 10 MB combined. The QR canvas and quiet border stay white. Animated reference images use Picture.
-                </p>
               </div>
             </.collapse>
 
@@ -441,15 +430,11 @@
       id="qr-scanner"
       phx-hook="QRScanner"
       phx-update="ignore"
+      data-file-source-max-size={@image_source_max_size}
       data-worker-url={~p"/assets/qr-scanner-worker.js"}
       class="grid gap-5"
     >
-      <header>
-        <h2 id="scanner-title" class="text-lg font-semibold">Scan a QR code</h2>
-        <p class="mt-1 text-sm leading-6 text-subcontent">
-          Choose an image or start your camera. Successful scans save the image and decoded text in this browser.
-        </p>
-      </header>
+      <h2 id="scanner-title" class="text-lg font-semibold">Scan a QR code</h2>
       <div class="grid grid-cols-[1fr_1fr] gap-4">
         <div class="grid min-w-0 content-start gap-3 rounded-2xl inset-surface p-4">
           <label for="scan-file" class="text-sm font-medium">QR image</label>
@@ -470,13 +455,9 @@
               placeholder="Choose a QR image"
             />
           </div>
-          <p class="text-xs leading-5 text-subcontent">
-            Up to 25 MB. PNG, JPEG, WebP, GIF, or SVG. Animated images are scanned as a still image.
-          </p>
         </div>
         <div class="grid content-start gap-3 rounded-2xl inset-surface p-4">
           <p class="text-sm font-medium">Camera</p>
-          <p class="text-xs leading-5 text-subcontent">Uses the rear camera when available.</p>
           <div class="grid grid-cols-[1fr_1fr] gap-2">
             <.button data-scan-start variant={:primary} type="button">Start camera</.button>
             <.button data-scan-stop variant={:neutral} type="button" hidden>Stop camera</.button>
@@ -495,9 +476,7 @@
         role="status"
         aria-live="polite"
         class="text-sm leading-6 text-subcontent empty:sr-only"
-      >
-        Ready to scan.
-      </p>
+      />
       <p data-scan-announcement role="status" class="sr-only"></p>
       <p
         data-scan-history-warning
@@ -517,12 +496,7 @@
   >
     <div id="qr-history" phx-hook="QRHistory" phx-update="ignore" class="grid gap-5">
       <header class="grid grid-cols-[1fr_max-content] items-start gap-4">
-        <div>
-          <h2 id="history-title" class="text-lg font-semibold">History</h2>
-          <p class="mt-1 text-sm leading-6 text-subcontent">
-            Scanned text, scan images, and downloaded QR codes are saved in this browser. Clearing browser data removes them.
-          </p>
-        </div>
+        <h2 id="history-title" class="text-lg font-semibold">History</h2>
         <.button data-history-clear variant={:neutral} type="button" disabled>Clear history</.button>
       </header>
       <p
@@ -560,11 +534,12 @@
               Original image unavailable.
             </p>
           </div>
-          <div class="grid gap-1">
+          <div class="grid min-w-0 gap-1">
             <h3 data-history-title class="text-sm font-semibold"></h3>
             <p
               data-history-payload
-              class="whitespace-pre-wrap break-all text-xs leading-5 text-subcontent"
+              tabindex="0"
+              class="truncate text-xs leading-5 text-subcontent focus-visible:outline-2 focus-visible:outline-brand"
             >
             </p>
             <time data-history-date class="text-xs text-subcontent"></time>

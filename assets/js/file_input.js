@@ -119,8 +119,17 @@ const FileInput = {
       error.hidden = false
       return
     }
+    const sourceLimit = Number(this.input.dataset.fileSourceMaxSize)
+    if (sourceLimit && file.size > sourceLimit) {
+      const error = this.el.querySelector("[data-file-error]")
+      error.textContent = "The selected image exceeds the file size limit."
+      error.hidden = false
+      return
+    }
     const editor = JSON.parse(this.el.dataset.fileEditor)
-    if (editor && this.el.dataset.filePreview === "true" && ["image/png", "image/jpeg", "image/gif", "image/webp"].includes(file.type)) this.prepareSelection(file, editor)
+    const editorTypes = ["image/png", "image/jpeg", "image/gif", "image/webp"]
+    if (sourceLimit && file.size > Number(this.el.dataset.fileMaxSize)) editorTypes.push("image/x-icon", "image/vnd.microsoft.icon")
+    if (editor && this.el.dataset.filePreview === "true" && editorTypes.includes(file.type)) this.prepareSelection(file, editor)
     else this.acceptSelection(file)
   },
 
@@ -154,15 +163,26 @@ const FileInput = {
         const blob = await response.blob()
         file = new File([blob], source.name, {type: source.type})
       }
+      const maxSize = Number(this.el.dataset.fileMaxSize)
+      let oversizedOptions
+      if (this.input.dataset.fileSourceMaxSize && maxSize && file.size > maxSize) {
+        const header = new Uint8Array(await file.slice(0, 21).arrayBuffer())
+        const decoder = new TextDecoder()
+        const gif = /^GIF8[79]a$/.test(decoder.decode(header.subarray(0, 6)))
+        const animatedWebP = decoder.decode(header.subarray(8, 16)) === "WEBPVP8X" && (header[20] & 0x02) !== 0
+        const preserveAnimation = gif || animatedWebP
+        if (preserveAnimation && file.size > 64 * 1024 * 1024) throw new Error("Choose a GIF or animated WebP up to 64 MiB.")
+        oversizedOptions = {maximumEdge: preserveAnimation ? 256 : 1024, preserveAnimation}
+      }
       const {default: ImageEditor} = await import("./image_editor")
       if (this.disposed || sequence !== this.sequence || this.input.matches(":disabled")) return
       this.editor = new ImageEditor()
       const accepted = await this.editor.edit(file, {
         ...(options === true ? {} : options),
+        ...oversizedOptions,
         template: this.el.querySelector("[data-file-editor-template]"),
       })
       if (this.disposed || sequence !== this.sequence || this.input.matches(":disabled") || !accepted) return
-      const maxSize = Number(this.el.dataset.fileMaxSize)
       if (maxSize && accepted.size > maxSize) throw new Error("The edited image exceeds the file size limit.")
       const replacing = this.files.find(file => file === source?.file || source?.ref && file._phxRef === source.ref)
       const maxEntries = Number(this.el.dataset.fileMaxEntries)

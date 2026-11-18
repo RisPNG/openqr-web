@@ -200,6 +200,59 @@ test("clear-button preference hides file removal and preserves the accepted file
   } finally { setup.cleanup() }
 })
 
+test("artwork accepts a large still source locally and hands off the prepared file", async () => {
+  const setup = fixture({fileUploadName: "reference", fileMaxSize: String(10 * 1024 * 1024)})
+  try {
+    setup.input.dataset.fileSourceMaxSize = "2000000000"
+    const photo = new File(["photo"], "original.jpg", {type: "image/jpeg"})
+    Object.defineProperty(photo, "size", {value: 2_000_000_000})
+    setup.select(photo)
+    await settled()
+    const editor = Editor.instances.at(-1)
+    assert.equal(editor.file, photo)
+    assert.equal(editor.options.maximumEdge, 1024)
+    assert.equal(editor.options.preserveAnimation, false)
+    assert.deepEqual(setup.input.files, [])
+
+    const prepared = new File(["prepared photo"], "original.jpg", {type: "image/jpeg"})
+    editor.resolve(prepared)
+    await settled()
+    assert.deepEqual(setup.input.files, [prepared])
+
+    const tooLarge = new File([], "over-limit.jpg", {type: "image/jpeg"})
+    Object.defineProperty(tooLarge, "size", {value: 2_000_000_001})
+    setup.select(tooLarge)
+    await settled()
+    assert.equal(Editor.instances.length, 1)
+    assert.equal(setup.error.hidden, false)
+    assert.match(setup.error.textContent, /file size limit/)
+    assert.deepEqual(setup.input.files, [prepared])
+  } finally { setup.cleanup() }
+})
+
+test("large animated WebP preserves its frames and rejects sources over the animation limit", async () => {
+  const setup = fixture({fileUploadName: "reference", fileMaxSize: String(10 * 1024 * 1024)})
+  try {
+    setup.input.dataset.fileSourceMaxSize = "2000000000"
+    const header = Buffer.from("RIFF\0\0\0\0WEBPVP8X\n\0\0\0\x02", "ascii")
+    const animated = new File([header], "animated.webp", {type: "image/webp"})
+    Object.defineProperty(animated, "size", {value: 64 * 1024 * 1024})
+    setup.select(animated)
+    await settled()
+    assert.equal(Editor.instances.at(-1).file, animated)
+    assert.equal(Editor.instances.at(-1).options.maximumEdge, 256)
+    assert.equal(Editor.instances.at(-1).options.preserveAnimation, true)
+
+    const tooLarge = new File([header], "over-limit.webp", {type: "image/webp"})
+    Object.defineProperty(tooLarge, "size", {value: 64 * 1024 * 1024 + 1})
+    setup.select(tooLarge)
+    await settled()
+    assert.equal(Editor.instances.length, 1)
+    assert.equal(setup.error.hidden, false)
+    assert.match(setup.error.textContent, /64 MiB/)
+  } finally { setup.cleanup() }
+})
+
 function serverItem(setup, {url, ref, type = "image/png", name = "image.png"}) {
   const element = new Element(setup.root)
   Object.assign(element.dataset, {fileItem: "", fileKey: url || ref, fileContentType: type, fileItemName: name})

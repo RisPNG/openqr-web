@@ -251,6 +251,29 @@ test("exact dimensions and source-resolution ratio crops use the fork with the o
   } finally { setup.cleanup() }
 })
 
+test("a large still crop uses the native canvas at bounded dimensions", async () => {
+  const setup = fixture()
+  try {
+    const file = new File(["image"], "large.jpg", {type: "image/jpeg"})
+    const pending = setup.editor.edit(file, {maximumEdge: 1024, template: setup.template})
+    const cropper = Cropper.instances.at(-1)
+    cropper.cropperImage.$getTransform = () => [0, 0.1, -0.1, 0, 0, 0]
+    cropper.selection.$toCanvas = async options => {
+      assert.equal(options.width, 1024)
+      assert.equal(options.height, undefined)
+      return {toBlob(callback, type) {callback(new Blob(["cropped pixels"], {type}))}}
+    }
+    cropper.ready()
+    await settled()
+    setup.dialogs.at(-1).click("confirm")
+    const prepared = await pending
+    assert.equal(SuperImageCropper.instances.length, 0)
+    assert.equal(prepared.type, "image/jpeg")
+    assert.equal(await prepared.text(), "cropped pixels")
+    assert.deepEqual(setup.revoked, ["blob:editor-1"])
+  } finally { setup.cleanup() }
+})
+
 test("free crop presets resize the selection and return to an unconstrained crop", async () => {
   const setup = fixture()
   try {

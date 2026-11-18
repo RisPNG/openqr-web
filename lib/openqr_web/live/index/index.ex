@@ -43,6 +43,7 @@ defmodule OpenQRWeb.IndexLive.Index do
         selected_entry: nil,
         selected_busy: false,
         regeneration_form: nil,
+        image_source_max_size: 2_000_000_000,
         reference: nil,
         background: nil,
         reference_name: nil,

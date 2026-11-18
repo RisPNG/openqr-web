@@ -128,11 +128,12 @@ const QRScanner = {
     this.results.replaceChildren()
     this.lastResults = ""
     if (!file) {
-      this.status.textContent = "Ready to scan."
+      this.status.textContent = ""
       return
     }
-    if (file.size > 25 * 1024 * 1024) {
-      this.status.textContent = "Choose an image smaller than 25 MB."
+    const maximumFileSize = Number(this.el.dataset.fileSourceMaxSize)
+    if (file.size > maximumFileSize) {
+      this.status.textContent = `Choose an image up to ${maximumFileSize / 1_000_000_000} GB.`
       return
     }
     this.status.textContent = "Reading image..."
@@ -234,9 +235,12 @@ const QRScanner = {
     for (const [index, result] of results.entries()) {
       const card = document.createElement("article")
       card.className = "grid gap-3 rounded-2xl inset-surface p-4"
-      const heading = document.createElement("h3")
-      heading.className = "text-sm font-semibold"
-      heading.textContent = this.scanSource === "file" && results.length === 1 ? "QR code" : `QR code ${index + 1}`
+      if (this.scanSource !== "file" || results.length > 1) {
+        const heading = document.createElement("h3")
+        heading.className = "text-sm font-semibold"
+        heading.textContent = `QR code ${index + 1}`
+        card.append(heading)
+      }
       const text = document.createElement("pre")
       text.className = "whitespace-pre-wrap break-all text-sm leading-6"
       text.textContent = result.text
@@ -266,7 +270,7 @@ const QRScanner = {
         open.textContent = "Open link"
         actions.appendChild(open)
       }
-      card.append(heading, text, actions)
+      card.append(text, actions)
       this.results.appendChild(card)
     }
   },

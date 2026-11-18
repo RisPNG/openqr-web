@@ -151,25 +151,49 @@ export default class ImageEditor {
     const alert = dialog.querySelector("[data-editor-error]")
     alert.hidden = true
     status.textContent = "Preparing image..."
-    const processor = this.processor = new SuperImageCropper()
+    const file = this.file
+    const {maximumEdge, preserveAnimation} = this.options
+    const processor = this.processor = !maximumEdge || preserveAnimation ? new SuperImageCropper() : null
     const processing = this.processing = new AbortController()
     try {
-      const blob = await processor.crop({
-        src: this.url,
-        cropperInstance: this.cropper,
-        outputWidth: this.options.width,
-        outputHeight: this.options.height,
-        signal: processing.signal,
-        outputType: "blob",
-      })
+      let outputWidth = this.options.width
+      let outputHeight = this.options.height
+      if (maximumEdge) {
+        const [a, b, c, d] = this.cropper.getCropperImage().$getTransform()
+        const sourceScale = Math.sqrt(Math.abs(a * d - b * c))
+        const edge = Math.max(1, Math.min(maximumEdge, Math.round(Math.max(selection.width, selection.height) / sourceScale)))
+        if (selection.width >= selection.height) outputWidth = edge
+        else outputHeight = edge
+      }
+      let blob
+      if (processor) {
+        blob = await processor.crop({
+          src: this.url,
+          cropperInstance: this.cropper,
+          outputWidth,
+          outputHeight,
+          signal: processing.signal,
+          outputType: "blob",
+        })
+      } else {
+        const raster = await selection.$toCanvas({
+          width: outputWidth,
+          height: outputHeight,
+          beforeDraw(context) {context.imageSmoothingQuality = "high"},
+        })
+        if (processing.signal.aborted) return
+        const type = ["image/jpeg", "image/webp"].includes(file.type) ? file.type : "image/png"
+        blob = await new Promise(resolve => raster.toBlob(resolve, type))
+        if (!blob) throw new Error("The cropped image could not be encoded.")
+      }
       if (this.dialog !== dialog) return
       const extension = {"image/gif": "gif", "image/png": "png", "image/jpeg": "jpg", "image/webp": "webp"}[blob.type]
-      const name = this.file.name.replace(/\.[^.]+$/, "") + `.${extension}`
-      const file = new File([blob], name, {type: blob.type, lastModified: Date.now()})
+      const name = file.name.replace(/\.[^.]+$/, "") + `.${extension}`
+      const prepared = new File([blob], name, {type: blob.type, lastModified: Date.now()})
       const resolve = this.resolve
       this.resolve = null
       this.destroy()
-      resolve(file)
+      resolve(prepared)
     } catch (error) {
       if (this.dialog !== dialog) return
       alert.textContent = error.message || "The image could not be prepared."
@@ -178,8 +202,8 @@ export default class ImageEditor {
       canvas.disabled = false
       for (const control of dialog.querySelectorAll("[data-editor-action]")) control.disabled = false
     } finally {
-      if (this.processor === processor) {
-        processor.destroy()
+      if (this.processing === processing) {
+        processor?.destroy()
         this.processor = this.processing = null
       }
     }
