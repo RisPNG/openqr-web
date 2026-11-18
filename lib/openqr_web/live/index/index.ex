@@ -155,19 +155,25 @@ defmodule OpenQRWeb.IndexLive.Index do
         socket
       end
 
-    with {version, ""} <- Integer.parse(value),
-         entry when not is_nil(entry) <- socket.assigns.results[version] do
-      {:noreply,
-       socket
-       |> assign(
-         selected_version: version,
-         selected_entry: entry,
-         regeneration_form: to_form(QR.regeneration_changeset(), as: "version")
-       )
-       |> generate_selected()}
-    else
+    case Integer.parse(value) do
+      {version, ""} -> {:noreply, inspect_version(socket, version)}
       _ -> {:noreply, socket}
     end
+  end
+
+  def handle_event(
+        "browse-version",
+        %{"direction" => direction},
+        %{assigns: %{selected_version: selected, busy: false, results: results}} = socket
+      )
+      when is_integer(selected) and direction in ["previous", "next"] do
+    {previous, next} = neighboring_versions(results, selected)
+    version = if direction == "previous", do: previous, else: next
+    {:noreply, inspect_version(socket, version)}
+  end
+
+  def handle_event("browse-version", _params, socket) do
+    {:noreply, socket}
   end
 
   def handle_event("close-version", _params, socket) do
@@ -410,6 +416,32 @@ defmodule OpenQRWeb.IndexLive.Index do
       },
       generation_error: nil
     )
+  end
+
+  defp neighboring_versions(results, selected) do
+    Enum.reduce(results, {nil, nil}, fn {version, _entry}, {previous, next} ->
+      cond do
+        version < selected and (is_nil(previous) or version > previous) -> {version, next}
+        version > selected and (is_nil(next) or version < next) -> {previous, version}
+        true -> {previous, next}
+      end
+    end)
+  end
+
+  defp inspect_version(socket, version) do
+    case socket.assigns.results[version] do
+      nil ->
+        socket
+
+      entry ->
+        socket
+        |> assign(
+          selected_version: version,
+          selected_entry: entry,
+          regeneration_form: to_form(QR.regeneration_changeset(), as: "version")
+        )
+        |> generate_selected()
+    end
   end
 
   defp generate_selected(socket, overrides \\ []) do

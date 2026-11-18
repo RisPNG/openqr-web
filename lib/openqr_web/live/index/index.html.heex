@@ -576,16 +576,40 @@
           class="grid size-8 cursor-pointer place-items-center rounded-full focus-visible:outline-2 focus-visible:outline-content"
         ><.icon name="hero-x-mark" class="size-4" /></button>
       </header>
-      <div class="py-4" aria-busy={to_string(@selected_busy)}>
-        <img
-          :if={Map.has_key?(@selected_entry, :image) || Map.has_key?(@selected_entry, :preview)}
-          id="selected-qr"
-          src={
-            "data:image/#{@selected_entry.format};base64,#{Base.encode64(Map.get(@selected_entry, :image) || @selected_entry.preview)}"
-          }
-          alt={"QR code version #{@selected_version}"}
-          class="mx-auto aspect-square max-h-[42svh] max-w-full rounded-xl object-contain"
-        />
+      <% {previous, next} = neighboring_versions(@results, @selected_version) %>
+      <div
+        class="grid grid-cols-[2.75rem_minmax(0,1fr)_2.75rem] items-center gap-2 py-4"
+        aria-busy={to_string(@selected_busy)}
+      >
+        <.button
+          id="previous-version"
+          variant={:text}
+          type="button"
+          phx-click={JS.push("browse-version", loading: "#version-card")}
+          phx-value-direction="previous"
+          aria-label="Previous version"
+          disabled={is_nil(previous)}
+          class="size-11 hover:bg-control"
+        ><.icon name="hero-chevron-left" class="size-6" /></.button>
+        <div class="grid min-h-44 min-w-0 place-items-center">
+          <img
+            :if={image = Map.get(@selected_entry, :image) || Map.get(@selected_entry, :preview)}
+            id="selected-qr"
+            src={"data:image/#{@selected_entry.format};base64,#{Base.encode64(image)}"}
+            alt={"QR code version #{@selected_version}"}
+            class="aspect-square max-h-[42svh] max-w-full rounded-xl object-contain"
+          />
+        </div>
+        <.button
+          id="next-version"
+          variant={:text}
+          type="button"
+          phx-click={JS.push("browse-version", loading: "#version-card")}
+          phx-value-direction="next"
+          aria-label="Next version"
+          disabled={is_nil(next)}
+          class="size-11 hover:bg-control"
+        ><.icon name="hero-chevron-right" class="size-6" /></.button>
       </div>
       <div class="grid gap-3">
         <p
@@ -598,7 +622,7 @@
         </p>
         <div
           :if={!@selected_busy && Map.has_key?(@selected_entry, :image)}
-          class="grid grid-cols-[1fr_1fr] gap-2"
+          class="grid grid-cols-[1fr_1fr] gap-2 phx-click-loading:invisible"
         >
           <.button
             variant={:primary}

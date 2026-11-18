@@ -9,6 +9,7 @@ config :elixir, :time_zone_database, Tz.TimeZoneDatabase
 
 config :openqr,
   default_qr_payload: "https://openqr.my",
+  default_qr_design: %{body_shape: "circle", eye_frame: "follow-body", eye_ball: "small-dots"},
   upload_directory: Path.expand("../var/uploads/public", __DIR__)
 
 config :openqr, OpenQR.Scheduler, jobs: []

@@ -70,47 +70,47 @@ defmodule OpenQRWeb.IndexLiveTest do
   setup_all do
     OpenQR.DefaultQR.prebuild(limit: 1, concurrency: 1)
 
-    styles = %{body_shape: "circle", eye_frame: "rounded-dots", eye_ball: "dots"}
-
-    if OpenQR.DefaultQR.fetch(styles) == :missing do
-      {:ok, batch} =
-        OpenQR.Engine.generate("https://openqr.my",
-          version: 0,
-          scale: 3,
-          seed: 42,
-          color: true,
-          mode: :mosaic,
-          vary_url: false,
-          body_shape: styles.body_shape,
-          eye_frame: styles.eye_frame,
-          eye_ball: styles.eye_ball
-        )
-
-      results =
-        Enum.map(batch.results, fn entry ->
-          Map.take(
-            entry,
-            ~w(version seed preview format payload verified_frames total_frames error_correction)a
-          )
-        end)
-
-      name =
-        :crypto.hash(:sha256, :erlang.term_to_binary({"circle", "rounded-dots", "dots"}))
-        |> Base.encode16(case: :lower)
-
-      File.write!(
-        Path.join(OpenQR.DefaultQR.directory(), name <> ".etf"),
-        :erlang.term_to_binary(
-          {1, {"circle", "rounded-dots", "dots"}, %{results: results, skipped: batch.skipped}},
-          [:compressed]
-        )
-      )
-    end
-
     batches =
-      Enum.map(["rounded", "circle"], fn body ->
-        styles = %{body_shape: body, eye_frame: "rounded-dots", eye_ball: "dots"}
-        {:ok, batch} = OpenQR.DefaultQR.fetch(styles)
+      for {body, frame, ball} = design <- [
+            {"circle", "follow-body", "small-dots"},
+            {"rounded", "rounded-dots", "dots"}
+          ] do
+        styles = %{body_shape: body, eye_frame: frame, eye_ball: ball}
+
+        batch =
+          case OpenQR.DefaultQR.fetch(styles) do
+            {:ok, batch} ->
+              batch
+
+            :missing ->
+              {:ok, batch} =
+                OpenQR.Engine.generate(
+                  "https://openqr.my",
+                  [version: 0, scale: 3, seed: 42, color: true, mode: :mosaic, vary_url: false] ++
+                    Map.to_list(styles)
+                )
+
+              batch = %{
+                results:
+                  Enum.map(batch.results, fn entry ->
+                    Map.take(
+                      entry,
+                      ~w(version seed preview format payload verified_frames total_frames error_correction)a
+                    )
+                  end),
+                skipped: batch.skipped
+              }
+
+              name =
+                Base.encode16(:crypto.hash(:sha256, :erlang.term_to_binary(design)), case: :lower)
+
+              File.write!(
+                Path.join(OpenQR.DefaultQR.directory(), name <> ".etf"),
+                :erlang.term_to_binary({1, design, batch}, [:compressed])
+              )
+
+              batch
+          end
 
         results =
           Enum.map(batch.results, fn entry ->
@@ -126,23 +126,19 @@ defmodule OpenQRWeb.IndexLiveTest do
             })
           end)
 
-        {body, %{batch | results: results}}
-      end)
+        {design, %{batch | results: results}}
+      end
 
     id = Base.encode16(:crypto.hash(:sha256, :erlang.term_to_binary(batches)), case: :lower)
     directory = OpenQR.DefaultQR.directory()
     File.mkdir_p!(Path.join(directory, "catalog-#{id}"))
 
-    for {body, batch} <- batches do
-      name =
-        Base.encode16(
-          :crypto.hash(:sha256, :erlang.term_to_binary({body, "rounded-dots", "dots"})),
-          case: :lower
-        )
+    for {design, batch} <- batches do
+      name = Base.encode16(:crypto.hash(:sha256, :erlang.term_to_binary(design)), case: :lower)
 
       File.write!(
         Path.join([directory, "catalog-#{id}", name <> ".etf"]),
-        :erlang.term_to_binary({1, {body, "rounded-dots", "dots"}, batch}, [:compressed])
+        :erlang.term_to_binary({1, design, batch}, [:compressed])
       )
     end
 
@@ -159,8 +155,8 @@ defmodule OpenQRWeb.IndexLiveTest do
         skipped: 0,
         shards: [],
         bodies:
-          Enum.map(batches, fn {body, _} ->
-            %{id: body, retired: false, pairs: [["rounded-dots", "dots"]]}
+          Enum.map(batches, fn {{body, frame, ball}, _} ->
+            %{id: body, retired: false, pairs: [[frame, ball]]}
           end)
       })
     )
@@ -180,6 +176,15 @@ defmodule OpenQRWeb.IndexLiveTest do
     assert length(Floki.find(document, "#qr-gallery canvas")) == 40
     assert length(Floki.find(document, "#qr-gallery [data-showcase-version][disabled]")) == 40
     assert has_element?(view, "#qr-design-options[phx-hook='QRDesign']")
+
+    assert has_element?(
+             view,
+             "#qr-showcase[data-body='circle'][data-frame='follow-body'][data-ball='small-dots']"
+           )
+
+    for {field, value} <- [body_shape: "circle", eye_frame: "follow-body", eye_ball: "small-dots"] do
+      assert has_element?(view, "input[name='qr[#{field}]'][value='#{value}'][checked]")
+    end
 
     assert has_element?(
              view,
@@ -285,16 +290,16 @@ defmodule OpenQRWeb.IndexLiveTest do
 
     assert gallery_previews(view) == initial
 
-    render_change(view, "change", %{"qr" => %{"body_shape" => "circle"}})
+    render_change(view, "change", %{"qr" => %{"body_shape" => "rounded"}})
     render_async(view, 30_000)
     assert gallery_previews(view) == initial
     assert has_element?(view, "#qr-showcase[phx-update='ignore'][phx-hook='QRShowcase']")
-    assert has_element?(view, "input[name='qr[body_shape]'][value='circle'][checked]")
+    assert has_element?(view, "input[name='qr[body_shape]'][value='rounded'][checked]")
     assert has_element?(view, "#gallery-title", "Design showcase")
 
     render_click(view, "select-version", %{
       "version" => "4",
-      "body" => "circle",
+      "body" => "rounded",
       "frame" => "rounded-dots",
       "ball" => "dots"
     })
@@ -391,6 +396,35 @@ defmodule OpenQRWeb.IndexLiveTest do
     refute has_element?(view, "#version-card")
   end
 
+  test "browses the displayed showcase inside one version modal", %{conn: conn} do
+    {:ok, view, _} = live(conn, ~p"/")
+
+    render_click(view, "select-version", %{
+      "version" => "1",
+      "body" => "rounded",
+      "frame" => "rounded-dots",
+      "ball" => "dots"
+    })
+
+    render_async(view, 30_000)
+    assert has_element?(view, "#previous-version[disabled]")
+    assert has_element?(view, "#version-modal a[download='openqr-v1.png']")
+    first_svg = download_svg(view)
+
+    view |> form("#qr-regeneration", version: %{seed: "1234"}) |> render_change()
+    view |> element("#next-version") |> render_click()
+    render_async(view, 30_000)
+    assert has_element?(view, "#version-modal #selected-title", "Version 2")
+    assert has_element?(view, "#version-modal a[download='openqr-v2.png']")
+    refute has_element?(view, "#version-modal a[download='openqr-v1.png']")
+    refute has_element?(view, "input[name='version[seed]'][value='1234']")
+
+    view |> element("#previous-version") |> render_click()
+    render_async(view, 30_000)
+    assert has_element?(view, "#version-modal #selected-title", "Version 1")
+    assert download_svg(view) == first_svg
+  end
+
   test "keeps the generated content and design until edited content is explicitly submitted", %{
     conn: conn
   } do
@@ -445,6 +479,16 @@ defmodule OpenQRWeb.IndexLiveTest do
     assert has_element?(view, "#version-card", "A note for tomorrow")
     assert download_svg(view) == generated_svg
 
+    view |> element("#next-version") |> render_click()
+    render_async(view, 30_000)
+    assert has_element?(view, "#version-modal a[download='openqr-v5.png']")
+    assert has_element?(view, "#version-card", "A note for tomorrow")
+
+    view |> element("#previous-version") |> render_click()
+    render_async(view, 30_000)
+    assert download_svg(view) == generated_svg
+    browsed = gallery_previews(view)
+
     view
     |> form("#qr-regeneration", version: %{seed: to_string(seed_placeholder(view))})
     |> render_submit()
@@ -458,11 +502,11 @@ defmodule OpenQRWeb.IndexLiveTest do
     |> render_click()
 
     refute has_element?(view, "#qr-background-square img")
-    assert gallery_previews(view) == generated
+    assert gallery_previews(view) == browsed
 
     view |> form("#qr-options") |> render_submit()
     render_async(view, 30_000)
-    refute gallery_previews(view) == generated
+    refute gallery_previews(view) == browsed
     render_click(view, "select-version", %{"version" => "4"})
     render_async(view, 30_000)
     assert has_element?(view, "#version-card", "https://ha.mr#.uod[;no")
@@ -569,7 +613,7 @@ defmodule OpenQRWeb.IndexLiveTest do
     view
     |> render()
     |> Floki.parse_document!()
-    |> Floki.find("a[download='openqr-v4.svg']")
+    |> Floki.find("#version-modal a[data-download-type='image/svg+xml']")
     |> Floki.attribute("data-download-content")
     |> hd()
   end

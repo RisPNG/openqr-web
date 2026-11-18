@@ -3,7 +3,8 @@ defmodule OpenQR.QRTest do
 
   test "keeps a compatible design and replaces retired or incompatible choices" do
     settings =
-      OpenQR.QR.changeset(%{"payload" => "Keep this draft"}) |> Ecto.Changeset.apply_changes()
+      OpenQR.QR.changeset(%{"payload" => "Keep this draft", "body_shape" => "rounded"})
+      |> Ecto.Changeset.apply_changes()
 
     bodies = [
       %{

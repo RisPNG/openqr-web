@@ -2,6 +2,7 @@ defmodule OpenQR.DefaultQR do
   @moduledoc false
 
   @payload Application.compile_env!(:openqr, :default_qr_payload)
+  @design Application.compile_env!(:openqr, :default_qr_design)
   @options [version: 0, scale: 3, seed: 42, color: true, mode: :mosaic, vary_url: false]
   @entry_keys ~w(version seed preview format payload verified_frames total_frames error_correction)a
 
@@ -237,7 +238,6 @@ defmodule OpenQR.DefaultQR do
 
     directory = if options[:directory], do: directory(options[:directory]), else: directory()
     File.mkdir_p!(directory)
-    baseline = %{body_shape: "rounded", eye_frame: "rounded-dots", eye_ball: "dots"}
 
     combinations =
       for body <- Map.keys(OpenQR.Engine.styles(:body)),
@@ -246,7 +246,7 @@ defmodule OpenQR.DefaultQR do
         %{body_shape: body, eye_frame: frame, eye_ball: ball}
       end
       |> Enum.sort_by(fn styles ->
-        {Enum.count(styles, fn {part, shape} -> shape != baseline[part] end), styles.body_shape,
+        {Enum.count(styles, fn {part, shape} -> shape != @design[part] end), styles.body_shape,
          styles.eye_frame, styles.eye_ball}
       end)
 

@@ -2,19 +2,16 @@ defmodule OpenQR.QR do
   alias Ecto.Changeset
   alias OpenQR.CoreUtils.Parse
 
-  @defaults %{
-    payload: "",
-    mode: "mosaic",
-    auto_brand: true,
-    vary_url: false,
-    ha_mr: false,
-    ha_mr_url: "",
-    background_transparent: true,
-    background_color: "#000000",
-    body_shape: "rounded",
-    eye_frame: "rounded-dots",
-    eye_ball: "dots"
-  }
+  @defaults Map.merge(Application.compile_env!(:openqr, :default_qr_design), %{
+              payload: "",
+              mode: "mosaic",
+              auto_brand: true,
+              vary_url: false,
+              ha_mr: false,
+              ha_mr_url: "",
+              background_transparent: true,
+              background_color: "#000000"
+            })
 
   @output_options [scale: 12, recovery_margin: 2, contrast: 1.0, brightness: 1.0, color: true]
   @showcase_payload Application.compile_env!(:openqr, :default_qr_payload)
