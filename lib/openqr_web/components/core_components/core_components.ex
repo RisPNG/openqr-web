@@ -652,7 +652,7 @@ defmodule OpenQRWeb.CoreComponents do
 
   `preview` defaults to `false`, which shows filenames. Setting it to `true` supplies image previews and the browser's native PDF viewer. The `stored_preview` and `pending_preview` slots override media rendering for stored URLs and pending upload entries. `preview_as` defaults to `"thumbnail"` when previews are enabled and `"tag"` otherwise. Explicit `"tag"` hides the media and shows its filename chip; `"thumbnail"` supplies the media frame and corner clear button. Single and singles thumbnail filenames appear inside the top-left corner on hover or keyboard focus, while multiple thumbnail filenames stay below the frame. Both layouts reveal the clear button on hover or keyboard focus. Use `thumbnail_class` to size the displayed frame, and `preview_caption` or `pending_caption` to override filenames.
 
-  `editor` defaults to `false`. `true` opens a free crop for image selections, `%{width: 512, height: 512}` requires that exact output size, and `%{ratio: 16 / 9}` requires that crop ratio. Maps enable editing and re-encode the accepted crop in the browser. Editing requires `preview: true`, a `"single"` or `"singles"` selection, and LiveView's `auto_upload` to remain `false`. An image preview's Edit button prepares a replacement for that image; edits to stored files submit the original URL as `<upload.name>_replacements[entry.ref]` so the save handler can replace the right stored item. PDFs and other file types skip the image editor. Canceling the editor preserves the previous selection.
+  `editor` defaults to `false`. `true` opens a free crop for image selections, `%{width: 512, height: 512}` requires that exact output size, and `%{ratio: 16 / 9}` requires that crop ratio. Maps enable editing and re-encode the accepted crop in the browser. Editing requires `preview: true` and a `"single"` or `"singles"` selection. Auto uploads start after the user confirms the edit. In manual uploads, an image preview's Edit button prepares a replacement for that image; edits to stored files submit the original URL as `<upload.name>_replacements[entry.ref]` so the save handler can replace the right stored item. PDFs and other file types skip the image editor. Canceling the editor preserves the previous selection.
 
   Give `preview_id` the ID of a `<.file_preview>` destination to place a single or singles preview elsewhere in the same LiveView. Keep the destination mounted, including when previews are turned off. The input still owns the upload configuration, stored files, editor, and all media and caption slots; LiveView's native portal renders that one preview collection into the destination. Multiple selection keeps its previews inline. The destination's `class` controls its placement and size; use `thumbnail_class="h-full w-full"` on the input when the destination sets the thumbnail dimensions.
 
@@ -992,9 +992,6 @@ defmodule OpenQRWeb.CoreComponents do
 
     if editor != false and not assigns.preview,
       do: raise(ArgumentError, "image editing requires preview: true")
-
-    if (editor != false and upload) && upload.auto_upload?,
-      do: raise(ArgumentError, "image editing requires auto_upload: false")
 
     entries = if upload, do: upload.entries, else: []
     file_count = length(assigns.stored) + length(entries)

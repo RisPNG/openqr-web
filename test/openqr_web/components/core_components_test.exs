@@ -1495,28 +1495,20 @@ defmodule OpenQRWeb.CoreComponentsTest do
         )
       end
 
-      for upload <- [
-            %Phoenix.LiveView.UploadConfig{
-              name: :attachment,
-              ref: "attachment-upload",
-              accept: :any,
-              max_entries: 2
-            },
-            %Phoenix.LiveView.UploadConfig{
-              name: :attachment,
-              ref: "attachment-upload",
-              accept: :any,
-              auto_upload?: true
-            }
-          ] do
-        assert_raise ArgumentError, fn ->
-          render_component(&CoreComponents.input/1,
-            type: "file",
-            upload: upload,
-            editor: true,
-            preview: true
-          )
-        end
+      upload = %Phoenix.LiveView.UploadConfig{
+        name: :attachment,
+        ref: "attachment-upload",
+        accept: :any,
+        max_entries: 2
+      }
+
+      assert_raise ArgumentError, "image editing requires single or singles selection", fn ->
+        render_component(&CoreComponents.input/1,
+          type: "file",
+          upload: upload,
+          editor: true,
+          preview: true
+        )
       end
     end
 

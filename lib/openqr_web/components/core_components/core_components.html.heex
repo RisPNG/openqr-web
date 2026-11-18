@@ -2584,7 +2584,7 @@
             media_slot={@pending_preview}
             caption_slot={@pending_caption}
             editable={@clear_button && @file_editable && @rest[:readonly] in [nil, false]}
-            edit_enabled={@file_editor_enabled && @file_editable}
+            edit_enabled={@file_editor_enabled && @file_editable && !@upload.auto_upload?}
             disabled={@rest[:disabled]}
             text_look={@text_look}
             hidden={
