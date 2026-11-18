@@ -14,16 +14,16 @@ async function fixture() {
   return {...module, entry}
 }
 
-async function entries() {
+async function entries(store = "downloads") {
   const db = await new Promise((resolve, reject) => {
-    const request = indexedDB.open("openqr-downloads", 1)
+    const request = indexedDB.open("openqr-downloads")
     request.onupgradeneeded = () => request.result.createObjectStore("downloads", {keyPath: "id"})
     request.onsuccess = () => resolve(request.result)
     request.onerror = () => reject(request.error)
   })
   const result = await new Promise((resolve, reject) => {
-    const transaction = db.transaction("downloads", "readonly")
-    const request = transaction.objectStore("downloads").getAll()
+    const transaction = db.transaction(store, "readonly")
+    const request = transaction.objectStore(store).getAll()
     transaction.oncomplete = () => resolve(request.result)
     transaction.onabort = () => reject(transaction.error)
   })
@@ -56,6 +56,32 @@ test("download history persists exact bytes, deduplicates re-downloads, and keep
   saved = await entries()
   assert.equal(saved.length, 2)
   assert.equal(changes, 3)
+})
+
+test("saving scans upgrades existing download history and only stores decoded text and time", async t => {
+  const {saveScans, entry} = await fixture()
+  const legacy = {...entry, id: "legacy-download", downloadedAt: 1}
+  await new Promise((resolve, reject) => {
+    const request = indexedDB.open("openqr-downloads", 1)
+    request.onupgradeneeded = () => request.result.createObjectStore("downloads", {keyPath: "id"}).put(legacy)
+    request.onsuccess = () => {
+      request.result.close()
+      resolve()
+    }
+    request.onerror = () => reject(request.error)
+  })
+  let now = 2
+  t.mock.method(Date, "now", () => now)
+  await saveScans([{text: entry.payload, pixels: new Uint8Array([1, 2, 3])}, {text: "Another QR"}, {text: entry.payload}])
+  now++
+  await saveScans([{text: entry.payload}])
+  const [download] = await entries()
+  assert.equal(download.id, legacy.id)
+  assert.equal(await download.artifact.text(), await entry.artifact.text())
+  assert.deepEqual(await entries("scans"), [
+    {payload: entry.payload, scannedAt: 3},
+    {payload: "Another QR", scannedAt: 2},
+  ])
 })
 
 test("opening and updating export previews never creates history; only a download click does", async () => {
@@ -104,39 +130,85 @@ test("history storage failure leaves the export downloadable and reports the fai
   hook.destroyed()
 })
 
-test("history reloads downloaded artifacts, displays payload as text, supports re-download, removal and clear", async () => {
-  const {QRHistory, saveDownload, entry} = await fixture()
+test("history shows latest scans and downloads, supports copying, re-download, removal and clear", async t => {
+  const {QRHistory, saveDownload, saveScans, entry} = await fixture()
+  let now = 1
+  t.mock.method(Date, "now", () => now)
+  const scanned = "<b>Scanned literally</b>\nSecond line"
   await saveDownload(entry)
+  now++
+  await saveScans([{text: scanned}])
+  now++
   await saveDownload({...entry, name: "openqr-v5.svg", version: 5})
+  const copied = []
+  Object.defineProperty(navigator, "clipboard", {
+    configurable: true,
+    value: {async writeText(value) {copied.push(value)}},
+  })
+  t.after(() => delete navigator.clipboard)
   const cards = []
-  const list = {replaceChildren() {cards.length = 0}, appendChild(card) {cards.push(card)}}
+  const list = {
+    get children() {return cards.map(card => card.querySelector("[data-history-card]"))},
+    replaceChildren() {cards.length = 0},
+    appendChild(card) {cards.push(card)},
+    querySelectorAll(selector) {return cards.map(card => card.querySelector(selector))},
+  }
   const status = {textContent: ""}
   const clear = {disabled: true}
   const template = {content: {cloneNode() {
     const fields = new Map()
-    for (const name of ["image", "title", "payload", "date", "download", "remove"]) fields.set(`[data-history-${name}]`, {dataset: {}, textContent: ""})
+    for (const name of ["card", "image", "title", "payload", "date", "download", "copy", "remove"]) {
+      const selector = `[data-history-${name}]`
+      fields.set(selector, {
+        textContent: "",
+        remove() {fields.delete(selector)},
+        focus() {document.activeElement = this},
+      })
+    }
     return {querySelector: selector => fields.get(selector)}
   }}}
   const root = new EventTarget()
   root.querySelector = selector => ({"[data-history-list]": list, "[data-history-status]": status, "[data-history-clear]": clear, "[data-history-entry]": template})[selector]
   const hook = {...QRHistory, el: root}
+  const click = (action, card) => hook.onClick({target: {closest(selector) {
+    if (selector === `[data-history-${action}]`) return card ? card.querySelector(selector) : clear
+    if (selector === "[data-history-card]") return card?.querySelector(selector)
+    return null
+  }}})
   hook.mounted()
-  await until(() => cards.length === 2)
+  await until(() => cards.length === 3)
+  assert.match(cards[0].querySelector("[data-history-title]").textContent, /Version 5/)
   assert.equal(cards[0].querySelector("[data-history-payload]").textContent, entry.payload)
+  assert.equal(cards[1].querySelector("[data-history-title]").textContent, "Scanned QR code")
+  assert.equal(cards[1].querySelector("[data-history-payload]").textContent, scanned)
+  assert.equal(cards[1].querySelector("[data-history-image]"), undefined)
+  assert.equal(cards[1].querySelector("[data-history-download]"), undefined)
   assert.equal(clear.disabled, false)
-  const link = cards[0].querySelector("[data-history-download]")
-  assert.equal(await (await fetch(link.href)).text(), await entry.artifact.text())
-  await hook.onClick({target: {closest: selector => selector === "[data-history-download]" ? link : null}})
+  await click("copy", cards[1])
+  assert.deepEqual(copied, [scanned])
+  assert.equal(status.textContent, "Copied scanned text.")
+  const firstDownload = cards[2]
+  assert.equal(await (await fetch(firstDownload.querySelector("[data-history-download]").href)).text(), await entry.artifact.text())
+  now++
+  await click("download", firstDownload)
+  await until(() => cards[0] !== firstDownload && cards[0].querySelector("[data-history-title]").textContent.includes("Version 4"))
   assert.equal((await entries()).length, 2)
+  cards[2].querySelector("[data-history-remove]").focus()
+  await click("remove", cards[2])
   await until(() => cards.length === 2)
-  const remove = cards[0].querySelector("[data-history-remove]")
-  await hook.onClick({target: {closest: selector => selector === "[data-history-remove]" ? remove : null}})
+  assert.equal(document.activeElement, cards[1].querySelector("[data-history-remove]"))
+  assert.equal(status.textContent, "2 saved entries.")
+  assert.equal((await entries("scans")).length, 0)
+  await click("remove", cards[0])
   await until(() => cards.length === 1)
   assert.equal((await entries()).length, 1)
-  await hook.onClick({target: {closest: selector => selector === "[data-history-clear]" ? clear : null}})
+  await saveScans([{text: "Another QR"}])
+  await until(() => cards.length === 2)
+  await click("clear")
   await until(() => cards.length === 0)
   assert.equal((await entries()).length, 0)
+  assert.equal((await entries("scans")).length, 0)
   assert.equal(clear.disabled, true)
-  assert.equal(status.textContent, "No downloads yet.")
+  assert.equal(status.textContent, "No history yet.")
   hook.destroyed()
 })

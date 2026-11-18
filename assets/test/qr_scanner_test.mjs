@@ -3,7 +3,8 @@ import assert from "node:assert/strict"
 import {readFile} from "node:fs/promises"
 import vm from "node:vm"
 
-const source = await readFile(new URL("../js/qr_scanner.js", import.meta.url), "utf8")
+const source = (await readFile(new URL("../js/qr_scanner.js", import.meta.url), "utf8"))
+  .replace(/^import \{saveScans\} from .*\n/m, "const saveScans = results => globalThis.saveScans(results)\n")
 const QRScanner = (await import(`data:text/javascript;base64,${Buffer.from(source).toString("base64")}`)).default
 const workerSource = (await readFile(new URL("../js/qr_scanner_worker.js", import.meta.url), "utf8")).replace(/^import .*\n/gm, "")
 
@@ -21,13 +22,17 @@ class Element {
 }
 
 async function withScanner(options, run) {
-  const names = ["document", "navigator", "Worker", "Image", "setTimeout", "clearTimeout"]
+  const names = ["document", "navigator", "Worker", "Image", "saveScans", "setTimeout", "clearTimeout"]
   const originals = new Map(names.map(name => [name, Object.getOwnPropertyDescriptor(globalThis, name)]))
   const originalCreate = URL.createObjectURL
   const originalRevoke = URL.revokeObjectURL
   const document = new Element()
   document.hidden = false
-  const elements = Object.fromEntries(["video", "file", "start", "stop", "status", "results"].map(name => [name, new Element(name)]))
+  const elements = Object.fromEntries(["video", "file", "preview", "start", "stop", "status", "announcement", "history-warning", "results"].map(name => [name, new Element(name)]))
+  elements.preview.hidden = true
+  elements.preview.getContext = () => ({
+    drawImage(input) { elements.preview.source = input },
+  })
   const video = elements.video
   Object.assign(video, {readyState: 2, videoWidth: options.width || 320, videoHeight: options.height || 240, play: async () => {}, pause() {}, srcObject: null})
   const track = new Element()
@@ -38,6 +43,7 @@ async function withScanner(options, run) {
   const mediaRequests = []
   const timers = new Map()
   const copies = []
+  const savedScans = []
   const images = []
   const urls = new Map()
   const created = []
@@ -85,6 +91,10 @@ async function withScanner(options, run) {
     },
     setTimeout: callback => { const id = ++timerId; timers.set(id, callback); return id },
     clearTimeout: id => timers.delete(id),
+    saveScans: async results => {
+      savedScans.push(results.map(({text}) => text))
+      await options.saveScans?.()
+    },
   }
   URL.createObjectURL = file => {
     const url = `blob:image-${created.length + 1}`
@@ -98,13 +108,13 @@ async function withScanner(options, run) {
     ...QRScanner,
     el: {
       dataset: {workerUrl: "/assets/qr-scanner-worker.js"},
-      querySelector: selector => elements[selector.match(/data-scan-(\w+)/)[1]],
+      querySelector: selector => elements[selector.match(/data-scan-([\w-]+)/)[1]],
     },
     pushEvent() { assert.fail("Decoded data must stay in the browser") },
   }
   try {
     hook.mounted()
-    await run({hook, elements, document, workers, mediaRequests, timers, stream, track, copies, canvas, images, created, revoked})
+    await run({hook, elements, document, workers, mediaRequests, timers, stream, track, copies, savedScans, canvas, images, created, revoked})
   } finally {
     hook.destroyed()
     await new Promise(setImmediate)
@@ -151,7 +161,7 @@ test("pending camera starts are serialized and late permission results are relea
 })
 
 test("camera frames are bounded and backpressured, results stay safe, and hidden pages release the camera", async () => {
-  await withScanner({width: 4000, height: 3000}, async ({hook, document, workers, timers, track, elements, copies}) => {
+  await withScanner({width: 4000, height: 3000}, async ({hook, document, workers, timers, track, elements, copies, savedScans}) => {
     await hook.startCamera()
     const worker = workers[0]
     assert.deepEqual(worker.config, {type: "module"})
@@ -163,6 +173,7 @@ test("camera frames are bounded and backpressured, results stay safe, and hidden
     worker.respond(payloads.map(text => ({text, format: "QRCodeModel2"})))
     await new Promise(setImmediate)
     assert.equal(timers.size, 1)
+    assert.deepEqual(savedScans, [payloads])
     assert.equal(elements.results.children.length, 3)
     for (const [index, card] of elements.results.children.entries()) assert.equal(card.children[1].textContent, payloads[index])
     assert.equal(elements.results.children[0].children[2].children.length, 1)
@@ -176,6 +187,12 @@ test("camera frames are bounded and backpressured, results stay safe, and hidden
     timers.delete(id)
     nextFrame()
     assert.equal(worker.messages.length, 2)
+    worker.respond([...payloads].reverse().map(text => ({text, format: "QRCodeModel2"})))
+    await new Promise(setImmediate)
+    assert.deepEqual(savedScans, [payloads])
+    const [thirdId, thirdFrame] = [...timers.entries()][0]
+    timers.delete(thirdId)
+    thirdFrame()
     document.hidden = true
     await document.emit("visibilitychange")
     worker.respond([{text: "late result", format: "QRCodeModel2"}])
@@ -184,7 +201,8 @@ test("camera frames are bounded and backpressured, results stay safe, and hidden
     assert.equal(worker.terminated, true)
     assert.equal(timers.size, 0)
     assert.equal(elements.video.srcObject, null)
-    assert.equal(elements.results.children[0].children[1].textContent, payloads[0])
+    assert.equal(elements.results.children[0].children[1].textContent, payloads.at(-1))
+    assert.deepEqual(savedScans, [payloads])
   })
 })
 
@@ -196,6 +214,9 @@ test("a new file cancels old decoding, releases image URLs, and an empty image g
     await new Promise(setImmediate)
     assert.equal(workers[0].messages[0].width, 2560)
     assert.equal(workers[0].messages[0].height, 1280)
+    assert.equal(elements.preview.hidden, false)
+    assert.deepEqual([elements.preview.width, elements.preview.height], [320, 160])
+    assert.equal(elements.preview.source, canvas)
     assert.equal(elements.file.value, "C:\\fakepath\\first.png")
     const secondScan = hook.scanFile({size: 1024, width: 10, height: 10})
     await new Promise(setImmediate)
@@ -209,20 +230,70 @@ test("a new file cancels old decoding, releases image URLs, and an empty image g
     assert.deepEqual(revoked, created)
     assert.equal(canvas.width, 0)
     assert.equal(canvas.height, 0)
+    assert.equal(elements.preview.hidden, false)
+    assert.deepEqual([elements.preview.width, elements.preview.height], [10, 10])
+    elements.file.files = []
+    await elements.file.emit("change")
+    assert.equal(elements.preview.hidden, true)
+    assert.equal(elements.preview.width, 0)
+    assert.equal(elements.status.textContent, "Ready to scan.")
   })
 })
 
 test("retained result cards report copy failures after the camera stops", async () => {
   await withScanner({}, async ({hook, workers, elements}) => {
+    const fileScan = hook.scanFile({size: 1024})
+    await new Promise(setImmediate)
+    workers[0].respond([])
+    await fileScan
+    assert.equal(elements.preview.hidden, false)
     await hook.startCamera()
-    workers[0].respond([{text: "retained payload", format: "QRCodeModel2"}])
+    workers[1].respond([{text: "retained payload", format: "QRCodeModel2"}])
     await new Promise(setImmediate)
     hook.onStop()
+    elements.file.files = []
+    await elements.file.emit("change")
+    assert.equal(elements.preview.hidden, true)
+    assert.equal(elements.status.textContent, "Camera stopped.")
+    assert.equal(elements.results.children[0].children[0].textContent, "QR code 1")
     navigator.clipboard.writeText = async () => { throw new DOMException("Clipboard blocked", "NotAllowedError") }
     const copy = elements.results.children[0].children[2].children[0]
     await copy.emit("click")
     assert.match(elements.status.textContent, /Copy was unavailable/)
     assert.equal(elements.results.children[0].children[1].textContent, "retained payload")
+  })
+})
+
+test("camera scan history can recover from a temporarily blocked store without retrying every frame", async t => {
+  let now = 10000
+  let blocked = true
+  t.mock.method(Date, "now", () => now)
+  await withScanner({saveScans() { if (blocked) throw new Error("History upgrade blocked") }}, async ({hook, elements, workers, timers, savedScans}) => {
+    await hook.startCamera()
+    const readings = [{text: "Retain after retry", format: "QRCodeModel2"}]
+    const worker = workers[0]
+    worker.respond(readings)
+    await new Promise(setImmediate)
+    assert.match(elements["history-warning"].textContent, /could not be saved/)
+
+    const [id, nextFrame] = [...timers.entries()][0]
+    timers.delete(id)
+    now += 150
+    nextFrame()
+    worker.respond(readings)
+    await new Promise(setImmediate)
+    assert.equal(savedScans.length, 1)
+    assert.match(elements["history-warning"].textContent, /could not be saved/)
+
+    const [retryId, retryFrame] = [...timers.entries()][0]
+    timers.delete(retryId)
+    now += 2000
+    blocked = false
+    retryFrame()
+    worker.respond(readings)
+    await new Promise(setImmediate)
+    assert.deepEqual(savedScans, [[readings[0].text], [readings[0].text]])
+    assert.equal(elements["history-warning"].textContent, "")
   })
 })
 
@@ -243,8 +314,8 @@ test("oversized files are rejected and image decoding completing after removal c
   })
 })
 
-test("PNG and SVG files use the same native image decoding flow and release their source URLs", async () => {
-  await withScanner({}, async ({hook, workers, images, created, revoked, canvas, elements}) => {
+test("single PNG and SVG results show a bounded local preview without a visible result count", async () => {
+  await withScanner({}, async ({hook, workers, images, created, revoked, canvas, elements, savedScans}) => {
     const png = new File([await readFile(new URL("fixtures/openqr-rounded-v4.png", import.meta.url))], "qr.png", {type: "image/png"})
     const svg = new File(['<svg xmlns="http://www.w3.org/2000/svg" width="100" height="100"></svg>'], "qr.svg", {type: "image/svg+xml"})
     for (const file of [png, svg]) {
@@ -257,9 +328,14 @@ test("PNG and SVG files use the same native image decoding flow and release thei
       workers.at(-1).respond([{text: "https://openqr.my", format: "QRCode"}])
       await scan
       assert.equal(image.src, "")
+      assert.equal(elements.preview.hidden, false)
+      assert.equal(elements.status.textContent, "")
+      assert.equal(elements.announcement.textContent, "QR code read.")
+      assert.equal(elements.results.children[0].children[0].textContent, "QR code")
       assert.equal(elements.results.children[0].children[1].textContent, "https://openqr.my")
     }
     assert.deepEqual(revoked, created)
+    assert.deepEqual(savedScans, [["https://openqr.my"], ["https://openqr.my"]])
   })
 })
 

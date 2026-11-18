@@ -1,10 +1,14 @@
 let database
+const historyStores = ["downloads", "scans"]
 
 function openHistory() {
   if (!database) database = new Promise((resolve, reject) => {
-    const request = indexedDB.open("openqr-downloads", 1)
+    const request = indexedDB.open("openqr-downloads", 2)
     let failed = false
-    request.onupgradeneeded = () => request.result.createObjectStore("downloads", {keyPath: "id"})
+    request.onupgradeneeded = event => {
+      if (event.oldVersion === 0) request.result.createObjectStore("downloads", {keyPath: "id"})
+      request.result.createObjectStore("scans", {keyPath: "payload"})
+    }
     request.onblocked = () => {
       failed = true
       reject(new Error("Close other OpenQR tabs to enable history."))
@@ -32,6 +36,22 @@ export async function saveDownload(entry) {
   await new Promise((resolve, reject) => {
     const transaction = db.transaction("downloads", "readwrite")
     transaction.objectStore("downloads").put({...entry, id: `${entry.name}:${hash}`, downloadedAt: Date.now()})
+    transaction.oncomplete = resolve
+    transaction.onabort = () => reject(transaction.error)
+  })
+  document.dispatchEvent(new Event("openqr:history-changed"))
+}
+
+export async function saveScans(results) {
+  if (results.length === 0) return
+  const db = await openHistory()
+  const scannedAt = Date.now()
+  await new Promise((resolve, reject) => {
+    const transaction = db.transaction("scans", "readwrite")
+    const store = transaction.objectStore("scans")
+    for (const payload of new Set(results.map(result => result.text))) {
+      store.put({payload, scannedAt})
+    }
     transaction.oncomplete = resolve
     transaction.onabort = () => reject(transaction.error)
   })
@@ -79,6 +99,7 @@ export const QRHistory = {
   mounted() {
     this.sequence = 0
     this.urls = []
+    this.entries = new WeakMap()
     this.status = this.el.querySelector("[data-history-status]")
     this.list = this.el.querySelector("[data-history-list]")
     this.clear = this.el.querySelector("[data-history-clear]")
@@ -87,19 +108,34 @@ export const QRHistory = {
       const remove = event.target.closest("[data-history-remove]")
       const clear = event.target.closest("[data-history-clear]")
       const link = event.target.closest("[data-history-download]")
+      const copy = event.target.closest("[data-history-copy]")
+      const card = event.target.closest("[data-history-card]")
+      const entry = this.entries.get(card)
+      if (copy) {
+        try {
+          await navigator.clipboard.writeText(entry.payload)
+          if (!this.disposed) this.status.textContent = "Copied scanned text."
+        } catch {
+          if (!this.disposed) this.status.textContent = "Copy was unavailable. Select and copy the scanned text."
+        }
+        return
+      }
       try {
         if (link && !event.defaultPrevented) {
-          await saveDownload(this.entries.get(link.dataset.id))
+          await saveDownload(entry)
         } else if (remove || clear) {
           const db = await openHistory()
           await new Promise((resolve, reject) => {
-            const transaction = db.transaction("downloads", "readwrite")
-            const store = transaction.objectStore("downloads")
-            if (remove) store.delete(remove.dataset.id)
-            else store.clear()
+            const stores = remove ? [entry.artifact ? "downloads" : "scans"] : historyStores
+            const transaction = db.transaction(stores, "readwrite")
+            if (remove) transaction.objectStore(stores[0]).delete(entry.id ?? entry.payload)
+            else for (const store of stores) transaction.objectStore(store).clear()
             transaction.oncomplete = resolve
             transaction.onabort = () => reject(transaction.error)
           })
+          if (remove && document.activeElement === remove) {
+            this.removedIndex = Array.prototype.indexOf.call(this.list.children, card)
+          }
           document.dispatchEvent(new Event("openqr:history-changed"))
         }
       } catch {
@@ -115,39 +151,57 @@ export const QRHistory = {
     try {
       const db = await openHistory()
       const entries = await new Promise((resolve, reject) => {
-        const transaction = db.transaction("downloads", "readonly")
-        const request = transaction.objectStore("downloads").getAll()
-        transaction.oncomplete = () => resolve(request.result)
+        const transaction = db.transaction(historyStores, "readonly")
+        const requests = historyStores.map(store => transaction.objectStore(store).getAll())
+        transaction.oncomplete = () => resolve(requests.flatMap(request => request.result))
         transaction.onabort = () => reject(transaction.error)
       })
       if (this.disposed || sequence !== this.sequence) return
       for (const url of this.urls) URL.revokeObjectURL(url)
       this.urls = []
-      this.entries = new Map(entries.map(entry => [entry.id, entry]))
       this.list.replaceChildren()
       this.clear.disabled = entries.length === 0
-      this.status.textContent = entries.length ? `${entries.length} saved ${entries.length === 1 ? "download" : "downloads"}.` : "No downloads yet."
-      for (const entry of entries.sort((a, b) => b.downloadedAt - a.downloadedAt)) {
+      this.status.textContent = entries.length
+        ? `${entries.length} saved ${entries.length === 1 ? "entry" : "entries"}.`
+        : "No history yet."
+      entries.sort((a, b) => (b.downloadedAt ?? b.scannedAt) - (a.downloadedAt ?? a.scannedAt))
+      const dateFormat = new Intl.DateTimeFormat(undefined, {dateStyle: "medium", timeStyle: "short"})
+      for (const entry of entries) {
         const card = this.el.querySelector("[data-history-entry]").content.cloneNode(true)
-        const url = URL.createObjectURL(entry.artifact)
-        this.urls.push(url)
+        this.entries.set(card.querySelector("[data-history-card]"), entry)
+        const title = card.querySelector("[data-history-title]")
         const image = card.querySelector("[data-history-image]")
-        image.src = url
-        image.alt = `Downloaded QR version ${entry.version}`
-        card.querySelector("[data-history-title]").textContent = `Version ${entry.version} · ${entry.name.split(".").at(-1).toUpperCase()}`
-        card.querySelector("[data-history-payload]").textContent = entry.payload
-        const date = card.querySelector("[data-history-date]")
-        date.dateTime = new Date(entry.downloadedAt).toISOString()
-        date.textContent = new Intl.DateTimeFormat(undefined, {dateStyle: "medium", timeStyle: "short"}).format(entry.downloadedAt)
         const link = card.querySelector("[data-history-download]")
-        link.href = url
-        link.download = entry.name
-        link.dataset.id = entry.id
-        card.querySelector("[data-history-remove]").dataset.id = entry.id
+        const copy = card.querySelector("[data-history-copy]")
+        if (entry.artifact) {
+          const url = URL.createObjectURL(entry.artifact)
+          this.urls.push(url)
+          title.textContent = `Version ${entry.version} · ${entry.name.split(".").at(-1).toUpperCase()}`
+          image.src = url
+          image.alt = `Downloaded QR version ${entry.version}`
+          link.href = url
+          link.download = entry.name
+          copy.remove()
+        } else {
+          title.textContent = "Scanned QR code"
+          image.remove()
+          link.remove()
+        }
+        card.querySelector("[data-history-payload]").textContent = entry.payload
+        const recordedAt = entry.downloadedAt ?? entry.scannedAt
+        const date = card.querySelector("[data-history-date]")
+        date.dateTime = new Date(recordedAt).toISOString()
+        date.textContent = dateFormat.format(recordedAt)
         this.list.appendChild(card)
       }
+      if (this.removedIndex !== undefined) {
+        const buttons = this.list.querySelectorAll("[data-history-remove]")
+        const focus = buttons[Math.min(this.removedIndex, buttons.length - 1)] || this.status
+        this.removedIndex = undefined
+        focus.focus()
+      }
     } catch {
-      if (!this.disposed && sequence === this.sequence) this.status.textContent = "History is unavailable in this browser. Downloads still work."
+      if (!this.disposed && sequence === this.sequence) this.status.textContent = "History is unavailable in this browser."
     }
   },
   destroyed() {

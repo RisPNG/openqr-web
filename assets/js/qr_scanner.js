@@ -1,3 +1,5 @@
+import {saveScans} from "./qr_history"
+
 const QRScanner = {
   mounted() {
     this.disposed = false
@@ -6,12 +8,17 @@ const QRScanner = {
     this.cameraStarting = false
     this.video = this.el.querySelector("[data-scan-video]")
     this.file = this.el.querySelector("[data-scan-file]")
+    this.preview = this.el.querySelector("[data-scan-preview]")
     this.start = this.el.querySelector("[data-scan-start]")
     this.stop = this.el.querySelector("[data-scan-stop]")
     this.status = this.el.querySelector("[data-scan-status]")
+    this.announcement = this.el.querySelector("[data-scan-announcement]")
+    this.historyWarning = this.el.querySelector("[data-scan-history-warning]")
     this.results = this.el.querySelector("[data-scan-results]")
     this.canvas = document.createElement("canvas")
     this.lastResults = ""
+    this.seenScans = new Set()
+    this.historyRetryAt = 0
 
     this.onStart = () => this.startCamera()
     this.onStop = () => {
@@ -47,6 +54,7 @@ const QRScanner = {
   async startCamera() {
     if (this.disposed || document.hidden || this.cameraStarting || this.stream) return
     this.stopScanning()
+    this.scanSource = "camera"
     const generation = this.generation
     this.cameraStarting = true
     this.start.disabled = true
@@ -107,11 +115,20 @@ const QRScanner = {
   },
 
   async scanFile(file) {
-    if (!file || this.disposed || document.hidden) return
+    if (this.disposed || document.hidden) return
+    this.preview.width = this.preview.height = 0
+    this.preview.hidden = true
+    this.announcement.textContent = ""
+    if (!file && this.scanSource !== "file") return
     this.stopScanning()
+    this.scanSource = file ? "file" : null
     const generation = this.generation
     this.results.replaceChildren()
     this.lastResults = ""
+    if (!file) {
+      this.status.textContent = "Ready to scan."
+      return
+    }
     if (file.size > 25 * 1024 * 1024) {
       this.status.textContent = "Choose an image smaller than 25 MB."
       return
@@ -128,12 +145,13 @@ const QRScanner = {
         this.status.textContent = "This image is too large. Resize it below 64 megapixels and try again."
         return
       }
-      const results = await this.decodeImage(image, image.naturalWidth, image.naturalHeight, 2560)
+      const results = await this.decodeImage(image, image.naturalWidth, image.naturalHeight, 2560, this.preview)
       if (this.disposed || generation !== this.generation) return
       this.renderResults(results)
-      this.status.textContent = results.length
-        ? `Found ${results.length} QR ${results.length === 1 ? "code" : "codes"}.`
-        : "No QR code found. Try a clearer image with the whole code visible."
+      this.status.textContent = results.length > 1
+        ? `Found ${results.length} QR codes.`
+        : results.length ? "" : "No QR code found. Try a clearer image with the whole code visible."
+      if (results.length === 1) this.announcement.textContent = "QR code read."
     } catch {
       if (!this.disposed && generation === this.generation) this.status.textContent = "This image could not be scanned. Choose another image or try the camera."
     } finally {
@@ -144,12 +162,19 @@ const QRScanner = {
     }
   },
 
-  decodeImage(image, width, height, maximumEdge) {
+  decodeImage(image, width, height, maximumEdge, preview = null) {
     const scale = Math.min(1, maximumEdge / Math.max(width, height))
     this.canvas.width = Math.max(1, Math.round(width * scale))
     this.canvas.height = Math.max(1, Math.round(height * scale))
     const context = this.canvas.getContext("2d", {willReadFrequently: true})
     context.drawImage(image, 0, 0, this.canvas.width, this.canvas.height)
+    if (preview) {
+      const thumbnailScale = Math.min(1, 320 / Math.max(this.canvas.width, this.canvas.height))
+      preview.width = Math.max(1, Math.round(this.canvas.width * thumbnailScale))
+      preview.height = Math.max(1, Math.round(this.canvas.height * thumbnailScale))
+      preview.getContext("2d").drawImage(this.canvas, 0, 0, preview.width, preview.height)
+      preview.hidden = false
+    }
     const pixels = context.getImageData(0, 0, this.canvas.width, this.canvas.height)
     if (!this.worker) {
       const worker = new Worker(this.el.dataset.workerUrl, {type: "module"})
@@ -177,7 +202,25 @@ const QRScanner = {
   },
 
   renderResults(results) {
-    const serialized = JSON.stringify(results)
+    if (Date.now() >= this.historyRetryAt) {
+      const newScans = results.filter(({text}) => {
+        if (this.seenScans.has(text)) return false
+        this.seenScans.add(text)
+        return true
+      })
+      if (newScans.length) {
+        const generation = this.generation
+        saveScans(newScans).then(() => {
+          if (generation === this.generation) this.historyWarning.textContent = ""
+        }).catch(() => {
+          if (generation !== this.generation) return
+          for (const {text} of newScans) this.seenScans.delete(text)
+          this.historyRetryAt = Date.now() + 2000
+          this.historyWarning.textContent = "QR content was read, but could not be saved to history."
+        })
+      }
+    }
+    const serialized = JSON.stringify([this.scanSource, results])
     if (serialized === this.lastResults) return
     this.lastResults = serialized
     this.results.replaceChildren()
@@ -186,7 +229,7 @@ const QRScanner = {
       card.className = "grid gap-3 rounded-2xl inset-surface p-4"
       const heading = document.createElement("h3")
       heading.className = "text-sm font-semibold"
-      heading.textContent = `QR code ${index + 1}`
+      heading.textContent = this.scanSource === "file" && results.length === 1 ? "QR code" : `QR code ${index + 1}`
       const text = document.createElement("pre")
       text.className = "whitespace-pre-wrap break-all text-sm leading-6"
       text.textContent = result.text
@@ -229,6 +272,9 @@ const QRScanner = {
 
   stopScanning() {
     this.generation++
+    this.seenScans.clear()
+    this.historyRetryAt = 0
+    this.historyWarning.textContent = ""
     clearTimeout(this.frameTimer)
     this.frameTimer = null
     this.worker?.terminate()
@@ -255,6 +301,7 @@ const QRScanner = {
   destroyed() {
     this.disposed = true
     this.stopScanning()
+    this.preview.width = this.preview.height = 0
     this.start.removeEventListener("click", this.onStart)
     this.stop.removeEventListener("click", this.onStop)
     this.file.removeEventListener("change", this.onFile)

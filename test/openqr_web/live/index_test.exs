@@ -21,7 +21,7 @@ defmodule OpenQRWeb.IndexLiveTest do
     refute has_element?(view, "#qr-scanner")
     assert has_element?(view, "#qr-history-panel:not([hidden])")
     assert has_element?(view, "#qr-history[phx-update='ignore']")
-    assert has_element?(view, "[data-history-status]", "No downloads yet")
+    assert has_element?(view, "[data-history-status]", "No history yet")
 
     view |> element("#qr-tab-generate") |> render_click()
     assert has_element?(view, "#qr-generate-panel:not([hidden])")
