@@ -55,20 +55,30 @@ defmodule OpenQRWeb.Dashboard.LayoutTestLive.UploadsTest do
     for {choice, editor} <- [
           {"false", false},
           {"true", true},
+          {"presets", %{"presets" => [[16, 9], [3, 2]]}},
           {"exact", %{"width" => 512, "height" => 512}},
           {"ratio", %{"ratio" => 16 / 9}}
         ] do
       render_click(element(view, "#upload-editor-#{choice}"))
       assert has_element?(view, "#upload-editor-#{choice}[aria-pressed=true]")
 
-      [constraint] =
-        view
-        |> render()
-        |> Floki.parse_document!()
-        |> Floki.attribute("#layout-test-upload-input [phx-hook=FileInput]", "data-file-editor")
+      markup = view |> render() |> Floki.parse_document!()
+      input = Floki.find(markup, "#layout-test-upload-input [phx-hook=FileInput]")
+      [constraint] = Floki.attribute(input, "data-file-editor")
 
       assert Jason.decode!(constraint) == editor
       assert has_element?(view, "#layout-test-upload-input [data-file-preview=true]")
+
+      picker = Floki.find(input, "template select[data-editor-action=aspect-ratio]")
+
+      if choice == "presets" do
+        assert [select] = picker
+        labels = select |> Floki.find("option") |> Enum.map(&(Floki.text(&1) |> String.trim()))
+        assert labels == ["Free", "16:9", "3:2"]
+        assert Floki.attribute(select, "option", "value") == ["", to_string(16 / 9), "1.5"]
+      else
+        assert picker == []
+      end
     end
 
     render_click(element(view, "#showcase-uploads-preview"))
@@ -76,9 +86,7 @@ defmodule OpenQRWeb.Dashboard.LayoutTestLive.UploadsTest do
     assert has_element?(view, "#layout-test-upload-input [data-file-editor=false]")
     assert has_element?(view, "#upload-editor-false[aria-pressed=true]")
 
-    for choice <- ~w(false true exact ratio) do
-      assert has_element?(view, "#upload-editor-#{choice}[disabled]")
-    end
+    refute has_element?(view, "#layout-test-upload-editor-controls button:not([disabled])")
 
     render_click(view, "set_showcase_option", %{
       "section" => "uploads",
@@ -90,9 +98,7 @@ defmodule OpenQRWeb.Dashboard.LayoutTestLive.UploadsTest do
     assert has_element?(view, "#upload-editor-false[aria-pressed=true]")
     render_click(element(view, "#showcase-uploads-preview"))
 
-    for choice <- ~w(false true exact ratio) do
-      refute has_element?(view, "#upload-editor-#{choice}[disabled]")
-    end
+    refute has_element?(view, "#layout-test-upload-editor-controls button[disabled]")
 
     assert has_element?(view, "#layout-test-upload-input [data-file-editor=false]")
     render_click(element(view, "#upload-editor-exact"))
@@ -114,9 +120,7 @@ defmodule OpenQRWeb.Dashboard.LayoutTestLive.UploadsTest do
              "#layout-test-upload-input [data-file-selection=multiple][data-file-editor=false]"
            )
 
-    for choice <- ~w(false true exact ratio) do
-      assert has_element?(view, "#upload-editor-#{choice}[disabled]")
-    end
+    refute has_element?(view, "#layout-test-upload-editor-controls button:not([disabled])")
 
     render_click(view, "set_showcase_option", %{
       "section" => "uploads",
@@ -129,9 +133,7 @@ defmodule OpenQRWeb.Dashboard.LayoutTestLive.UploadsTest do
     render_click(element(view, "#upload-selection-single"))
     assert has_element?(view, "#layout-test-upload-input input[type=file]:not([multiple])")
 
-    for choice <- ~w(false true exact ratio) do
-      refute has_element?(view, "#upload-editor-#{choice}[disabled]")
-    end
+    refute has_element?(view, "#layout-test-upload-editor-controls button[disabled]")
 
     assert has_element?(view, "#upload-editor-false[aria-pressed=true]")
   end

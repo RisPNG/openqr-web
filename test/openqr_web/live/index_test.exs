@@ -193,6 +193,23 @@ defmodule OpenQRWeb.IndexLiveTest do
 
     assert document |> Floki.find("textarea[name='qr[payload]']") |> Floki.text() == ""
     assert has_element?(view, "input[name='qr[auto_brand]'][type='checkbox'][checked]")
+
+    assert document
+           |> Floki.find(
+             "[data-file-upload-name=reference] [data-editor-action=aspect-ratio] option"
+           )
+           |> Enum.map(&(Floki.text(&1) |> String.trim())) == ["Free", "1:1"]
+
+    refute has_element?(
+             view,
+             "[data-file-upload-name=background] [data-editor-action=aspect-ratio]"
+           )
+
+    assert [background_editor] =
+             Floki.attribute(document, "[data-file-upload-name=background]", "data-file-editor")
+
+    assert Jason.decode!(background_editor) == %{"ratio" => 1}
+
     refute has_element?(view, "#version-card")
     refute has_element?(view, "#qr-export-options")
 

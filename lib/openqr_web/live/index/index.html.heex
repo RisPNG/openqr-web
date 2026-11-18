@@ -187,7 +187,9 @@
                         label={label}
                         placeholder="Choose a file"
                         preview={true}
-                        editor={if(name == :background, do: %{ratio: 1}, else: true)}
+                        editor={
+                          if(name == :background, do: %{ratio: 1}, else: %{presets: [{1, 1}]})
+                        }
                         preview_id={"qr-#{name}-pending"}
                         thumbnail_class="size-full bg-primary"
                       >
