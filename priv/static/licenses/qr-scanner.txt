@@ -1,10 +1,11 @@
-QR scanner third-party notices
+Browser QR tools third-party notices
 
-The browser scanner ships the reader-only WebAssembly build from zxing-wasm 3.1.7. Its native reader uses ZXing-C++, bundled libzueci and librscpp, stb_image, and Emscripten C/C++ runtime support. The writer targets, stb_image_write, and Zint are excluded from this reader build. Selecting QR formats at runtime does not remove the other readers compiled into the published artifact.
+The browser scanner ships the reader-only WebAssembly build from zxing-wasm 3.1.7. Scan history previews use the separately loaded writer-only build. Both builds use ZXing-C++ and Emscripten C/C++ runtime support. The reader uses bundled libzueci and librscpp and stb_image. The writer uses the bundled Zint backend and stb_image_write. Selecting QR formats at runtime does not remove the other formats compiled into either artifact.
 
 Source revisions:
 - zxing-wasm 3.1.7: https://github.com/Sec-ant/zxing-wasm/tree/1a2b5310056a2b140feb6ca625fcefd6eaf12ef0
 - ZXing-C++ submodule: https://github.com/zxing-cpp/zxing-cpp/tree/f19f7c6e0509fe0eeb822bf35c41b0f637dec290
+- Zint submodule: https://github.com/zint/zint/tree/55541e139e62b9209b71cd9b0ba9010cec28b1d9
 - Emscripten SDK version 7.0.0: https://github.com/Sec-ant/zxing-wasm/blob/1a2b5310056a2b140feb6ca625fcefd6eaf12ef0/.github/actions/setup/action.yml
 
 The stb dependency is fetched without a pinned revision by the upstream build. Its exact revision in the published WebAssembly artifact is not recorded in that build configuration. The stb license below is reproduced from the identified upstream source snapshot; that snapshot is not asserted to be the artifact's exact source revision. Runtime license texts below are reproduced from Emscripten 7.0.0 and include support-library notices even where linking may remove unused portions.
@@ -459,7 +460,7 @@ ZXingWasm.cpp identifies Copyright 2016 Nu-book Inc., Copyright 2023 Axel Wagger
 
 
 ==============================================================================
-4. stb_image - MIT or public domain
+4. stb_image and stb_image_write - MIT or public domain
 License source snapshot: https://github.com/nothings/stb/blob/9600522de53973336fa033a289858a4354cbb04c/LICENSE
 Upstream dependency declaration: https://github.com/zxing-cpp/zxing-cpp/blob/f19f7c6e0509fe0eeb822bf35c41b0f637dec290/zxing.cmake
 ==============================================================================
@@ -549,7 +550,48 @@ Source: https://github.com/zxing-cpp/zxing-cpp/blob/f19f7c6e0509fe0eeb822bf35c41
      */
 
 ==============================================================================
-7. Emscripten runtime and embind
+7. Zint backend - BSD-3-Clause
+Sources: https://github.com/zint/zint/tree/55541e139e62b9209b71cd9b0ba9010cec28b1d9/backend
+Bundled source list: https://github.com/zxing-cpp/zxing-cpp/blob/f19f7c6e0509fe0eeb822bf35c41b0f637dec290/core/CMakeLists.txt
+==============================================================================
+
+libzint - the open source barcode library
+Copyright (C) 2007-2025 Robin Stuart <rstuart114@gmail.com>
+Copyright (C) 2024-2025 Antoine Merino <antoine.merino.dev@gmail.com>
+Copyright (C) 2006 Kentaro Fukuchi <fukuchi@megaui.net>
+Portions Copyright (C) 2004 Grandzebu
+
+Redistribution and use in source and binary forms, with or without
+modification, are permitted provided that the following conditions
+are met:
+
+1. Redistributions of source code must retain the above copyright
+   notice, this list of conditions and the following disclaimer.
+2. Redistributions in binary form must reproduce the above copyright
+   notice, this list of conditions and the following disclaimer in the
+   documentation and/or other materials provided with the distribution.
+3. Neither the name of the project nor the names of its contributors
+   may be used to endorse or promote products derived from this software
+   without specific prior written permission.
+
+THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS" AND
+ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
+IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
+ARE DISCLAIMED.  IN NO EVENT SHALL THE COPYRIGHT OWNER OR CONTRIBUTORS BE LIABLE
+FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL
+DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS
+OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION)
+HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT
+LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY
+OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF
+SUCH DAMAGE.
+
+The GS1 DataBar functions dbar_combins and dbar_getWidths are copyright BSI. The permission terms appear in https://github.com/zint/zint/blob/55541e139e62b9209b71cd9b0ba9010cec28b1d9/backend/rss.c.
+
+Zint's Arimo font subset is Copyright 2013 Steve Matteson and uses Apache-2.0, reproduced under ZXing-C++ above. The OCR-B font subset is Copyright Matthew Skala (2011), based on code by Norbert Schwarz (1986, 2011), and comes from sources released for unrestricted use and distribution.
+
+==============================================================================
+8. Emscripten runtime and embind
 Source: https://raw.githubusercontent.com/emscripten-core/emscripten/7.0.0/LICENSE
 ==============================================================================
 
@@ -658,7 +700,7 @@ flag will run closure compiler from third_party/).
 
 
 ==============================================================================
-8. musl libc
+9. musl libc
 Source: https://raw.githubusercontent.com/emscripten-core/emscripten/7.0.0/system/lib/libc/musl/COPYRIGHT
 ==============================================================================
 
@@ -858,7 +900,7 @@ obstacle to adoption, that text has been removed.
 
 
 ==============================================================================
-9. LLVM libc++
+10. LLVM libc++
 Source: https://raw.githubusercontent.com/emscripten-core/emscripten/7.0.0/system/lib/libcxx/LICENSE.TXT
 ==============================================================================
 
@@ -1176,7 +1218,7 @@ THE SOFTWARE.
 
 
 ==============================================================================
-10. LLVM libc++abi
+11. LLVM libc++abi
 Source: https://raw.githubusercontent.com/emscripten-core/emscripten/7.0.0/system/lib/libcxxabi/LICENSE.TXT
 ==============================================================================
 
@@ -1494,7 +1536,7 @@ THE SOFTWARE.
 
 
 ==============================================================================
-11. LLVM libunwind
+12. LLVM libunwind
 Source: https://raw.githubusercontent.com/emscripten-core/emscripten/7.0.0/system/lib/libunwind/LICENSE.TXT
 ==============================================================================
 
@@ -1812,7 +1854,7 @@ THE SOFTWARE.
 
 
 ==============================================================================
-12. LLVM compiler-rt
+13. LLVM compiler-rt
 Source: https://raw.githubusercontent.com/emscripten-core/emscripten/7.0.0/system/lib/compiler-rt/LICENSE.TXT
 ==============================================================================
 

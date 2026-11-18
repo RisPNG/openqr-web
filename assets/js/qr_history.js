@@ -1,3 +1,5 @@
+import {websiteUrl} from "./qr_links.js"
+
 let database
 const historyStores = ["downloads", "scans"]
 
@@ -103,6 +105,26 @@ export const QRHistory = {
     this.status = this.el.querySelector("[data-history-status]")
     this.list = this.el.querySelector("[data-history-list]")
     this.clear = this.el.querySelector("[data-history-clear]")
+    this.previewObserver = new IntersectionObserver(observations => {
+      if (this.disposed) return
+      for (const {target, isIntersecting} of observations) {
+        if (!isIntersecting || !this.list.contains(target)) continue
+        this.previewObserver.unobserve(target)
+        const {payload} = this.entries.get(target.closest("[data-history-card]"))
+        import("./qr_history_preview.js").then(({scanPreview}) => {
+          if (!this.disposed && this.list.contains(target)) return scanPreview(payload)
+        }).then(blob => {
+          if (!blob || this.disposed || !this.list.contains(target)) return
+          const url = URL.createObjectURL(blob)
+          this.urls.push(url)
+          target.src = url
+        }).catch(() => {
+          if (!this.disposed && this.list.contains(target)) {
+            target.parentElement.querySelector("[data-history-preview-error]").hidden = false
+          }
+        })
+      }
+    })
     this.onHistoryChange = () => this.renderHistory()
     this.onClick = async event => {
       const remove = event.target.closest("[data-history-remove]")
@@ -157,6 +179,7 @@ export const QRHistory = {
         transaction.onabort = () => reject(transaction.error)
       })
       if (this.disposed || sequence !== this.sequence) return
+      this.previewObserver.disconnect()
       for (const url of this.urls) URL.revokeObjectURL(url)
       this.urls = []
       this.list.replaceChildren()
@@ -173,6 +196,7 @@ export const QRHistory = {
         const image = card.querySelector("[data-history-image]")
         const link = card.querySelector("[data-history-download]")
         const copy = card.querySelector("[data-history-copy]")
+        const open = card.querySelector("[data-history-open]")
         if (entry.artifact) {
           const url = URL.createObjectURL(entry.artifact)
           this.urls.push(url)
@@ -182,10 +206,14 @@ export const QRHistory = {
           link.href = url
           link.download = entry.name
           copy.remove()
+          open.remove()
         } else {
           title.textContent = "Scanned QR code"
-          image.remove()
+          image.alt = "QR code for scanned text"
           link.remove()
+          const url = websiteUrl(entry.payload)
+          if (url) open.href = url
+          else open.remove()
         }
         card.querySelector("[data-history-payload]").textContent = entry.payload
         const recordedAt = entry.downloadedAt ?? entry.scannedAt
@@ -193,6 +221,7 @@ export const QRHistory = {
         date.dateTime = new Date(recordedAt).toISOString()
         date.textContent = dateFormat.format(recordedAt)
         this.list.appendChild(card)
+        if (!entry.artifact) this.previewObserver.observe(image)
       }
       if (this.removedIndex !== undefined) {
         const buttons = this.list.querySelectorAll("[data-history-remove]")
@@ -209,6 +238,7 @@ export const QRHistory = {
     this.sequence++
     document.removeEventListener("openqr:history-changed", this.onHistoryChange)
     this.el.removeEventListener("click", this.onClick)
+    this.previewObserver.disconnect()
     for (const url of this.urls) URL.revokeObjectURL(url)
   },
 }

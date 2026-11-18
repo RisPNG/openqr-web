@@ -3,8 +3,12 @@ import assert from "node:assert/strict"
 import {readFile} from "node:fs/promises"
 import vm from "node:vm"
 
+const linksSource = await readFile(new URL("../js/qr_links.js", import.meta.url))
+const linksUrl = `data:text/javascript;base64,${linksSource.toString("base64")}`
+const {websiteUrl} = await import(linksUrl)
 const source = (await readFile(new URL("../js/qr_scanner.js", import.meta.url), "utf8"))
   .replace(/^import \{saveScans\} from .*\n/m, "const saveScans = results => globalThis.saveScans(results)\n")
+  .replace('"./qr_links.js"', JSON.stringify(linksUrl))
 const QRScanner = (await import(`data:text/javascript;base64,${Buffer.from(source).toString("base64")}`)).default
 const workerSource = (await readFile(new URL("../js/qr_scanner_worker.js", import.meta.url), "utf8")).replace(/^import .*\n/gm, "")
 
@@ -160,6 +164,16 @@ test("pending camera starts are serialized and late permission results are relea
   })
 })
 
+test("website links resolve web addresses without turning other QR payloads into links", () => {
+  assert.equal(websiteUrl("lego.com"), "https://lego.com/")
+  assert.equal(websiteUrl("rispeng.com/about?from=https://poppybit.com#top"), "https://rispeng.com/about?from=https://poppybit.com#top")
+  assert.equal(websiteUrl("  http://localhost:4000/qr  "), "http://localhost:4000/qr")
+  assert.equal(websiteUrl("b\u00fccher.de"), "https://xn--bcher-kva.de/")
+  for (const payload of ["read this", "1.2.3", "//lego.com", "hi@rispeng.com", "ftp.example://lego.com", "https://lego.com@rispeng.com", "https://", "javascript:alert(1)", "WIFI:T:WPA;S:guest;P:hello;;", "lego.com\nextra"]) {
+    assert.equal(websiteUrl(payload), null, payload)
+  }
+})
+
 test("camera frames are bounded and backpressured, results stay safe, and hidden pages release the camera", async () => {
   await withScanner({width: 4000, height: 3000}, async ({hook, document, workers, timers, track, elements, copies, savedScans}) => {
     await hook.startCamera()
@@ -169,18 +183,20 @@ test("camera frames are bounded and backpressured, results stay safe, and hidden
     assert.equal(worker.messages[0].width, 1600)
     assert.equal(worker.messages[0].height, 1200)
     assert.equal(timers.size, 0)
-    const payloads = ["<img src=x onerror=alert(1)>", "javascript:alert(1)", "https://openqr.my/path"]
+    const payloads = ["<img src=x onerror=alert(1)>", "javascript:alert(1)", "https://openqr.my/path", "lego.com"]
     worker.respond(payloads.map(text => ({text, format: "QRCodeModel2"})))
     await new Promise(setImmediate)
     assert.equal(timers.size, 1)
     assert.deepEqual(savedScans, [payloads])
-    assert.equal(elements.results.children.length, 3)
+    assert.equal(elements.results.children.length, payloads.length)
     for (const [index, card] of elements.results.children.entries()) assert.equal(card.children[1].textContent, payloads[index])
     assert.equal(elements.results.children[0].children[2].children.length, 1)
     assert.equal(elements.results.children[1].children[2].children.length, 1)
     const link = elements.results.children[2].children[2].children[1]
     assert.equal(link.href, payloads[2])
+    assert.equal(link.target, "_blank")
     assert.equal(link.rel, "noopener noreferrer")
+    assert.equal(elements.results.children[3].children[2].children[1].href, "https://lego.com/")
     await elements.results.children[0].children[2].children[0].emit("click")
     assert.deepEqual(copies, [payloads[0]])
     const [id, nextFrame] = [...timers.entries()][0]

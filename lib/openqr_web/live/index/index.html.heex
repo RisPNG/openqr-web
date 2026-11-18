@@ -11,6 +11,8 @@
           by
           <.link
             href="https://rispeng.com"
+            target="_blank"
+            rel="noopener noreferrer"
             class="rounded-sm focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-brand-frame"
           >Ris Peng</.link>
         </p>
@@ -534,22 +536,41 @@
       </div>
       <template data-history-entry>
         <article data-history-card class="grid min-w-0 gap-3 rounded-2xl border border-outline p-4">
-          <img
-            data-history-image
-            width="180"
-            height="180"
-            loading="lazy"
-            class="aspect-square w-full object-contain"
-          />
+          <div class="relative aspect-square">
+            <img
+              data-history-image
+              width="180"
+              height="180"
+              loading="lazy"
+              class="aspect-square w-full object-contain [&:not([src])]:invisible"
+            />
+            <p
+              data-history-preview-error
+              hidden
+              class="absolute inset-0 grid place-items-center text-center text-xs text-subcontent"
+            >
+              QR preview unavailable.
+            </p>
+          </div>
           <div class="grid gap-1">
             <h3 data-history-title class="text-sm font-semibold"></h3>
             <p data-history-payload class="whitespace-pre-wrap break-all text-xs leading-5 text-subcontent">
             </p>
             <time data-history-date class="text-xs text-subcontent"></time>
           </div>
-          <div class="grid grid-cols-[1fr_2.75rem] gap-2">
+          <div class="grid grid-cols-[minmax(0,1fr)_2.75rem] gap-2 has-[[data-history-open]]:grid-cols-[minmax(0,1fr)_minmax(0,1fr)_2.75rem]">
             <.button data-history-download href="#" variant={:primary}>Download</.button>
-            <.button data-history-copy variant={:primary} type="button">Copy</.button>
+            <.button data-history-copy variant={:primary} type="button" class="px-1!">Copy</.button>
+            <.button
+              data-history-open
+              href="#"
+              target="_blank"
+              rel="noopener noreferrer"
+              variant={:neutral}
+              class="px-1! whitespace-normal!"
+            >
+              Open link
+            </.button>
             <.action_button action={:delete} data-history-remove tooltip="Remove from history" />
           </div>
         </article>

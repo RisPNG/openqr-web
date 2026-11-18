@@ -1,4 +1,5 @@
 import {saveScans} from "./qr_history"
+import {websiteUrl} from "./qr_links.js"
 
 const QRScanner = {
   mounted() {
@@ -249,21 +250,15 @@ const QRScanner = {
         }
       })
       actions.appendChild(copy)
-      if (/^https?:\/\//i.test(result.text)) {
-        try {
-          const url = new URL(result.text)
-          if (url.protocol === "http:" || url.protocol === "https:") {
-            const open = document.createElement("a")
-            open.href = url.href
-            open.target = "_blank"
-            open.rel = "noopener noreferrer"
-            open.className = copy.className
-            open.textContent = "Open link"
-            actions.appendChild(open)
-          }
-        } catch {
-          // A payload can start like a URL without being a valid link.
-        }
+      const href = websiteUrl(result.text)
+      if (href) {
+        const open = document.createElement("a")
+        open.href = href
+        open.target = "_blank"
+        open.rel = "noopener noreferrer"
+        open.className = copy.className
+        open.textContent = "Open link"
+        actions.appendChild(open)
       }
       card.append(heading, text, actions)
       this.results.appendChild(card)

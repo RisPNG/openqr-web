@@ -1,15 +1,16 @@
 import test from "node:test"
 import assert from "node:assert/strict"
-import {readFile} from "node:fs/promises"
+import {once} from "node:events"
 import {IDBFactory} from "fake-indexeddb"
 
-const source = await readFile(new URL("../js/qr_history.js", import.meta.url), "utf8")
 let sequence = 0
 
 async function fixture() {
   globalThis.indexedDB = new IDBFactory()
   globalThis.document = new EventTarget()
-  const module = await import(`data:text/javascript;base64,${Buffer.from(source + `\n// ${++sequence}`).toString("base64")}`)
+  const url = new URL("../js/qr_history.js", import.meta.url)
+  url.searchParams.set("test", ++sequence)
+  const module = await import(url)
   const entry = {artifact: new Blob(["<svg>QR data</svg>"], {type: "image/svg+xml"}), name: "openqr-v4.svg", payload: "<script>alert('literal text')</script>", version: 4}
   return {...module, entry}
 }
@@ -101,8 +102,9 @@ test("opening and updating export previews never creates history; only a downloa
   assert.equal((await entries()).length, 0)
   const click = new Event("click")
   Object.defineProperty(click, "target", {value: {closest: () => link}})
+  const updated = once(document, "openqr:history-changed", {signal: AbortSignal.timeout(3000)})
   root.dispatchEvent(click)
-  await until(async () => (await entries()).length === 1)
+  await updated
   assert.equal((await entries())[0].payload, entry.payload)
   const lastURL = link.href
   hook.destroyed()
@@ -147,6 +149,12 @@ test("history shows latest scans and downloads, supports copying, re-download, r
   })
   t.after(() => delete navigator.clipboard)
   const cards = []
+  const previewImages = new Set()
+  globalThis.IntersectionObserver = class {
+    observe(image) {previewImages.add(image)}
+    disconnect() {previewImages.clear()}
+  }
+  t.after(() => delete globalThis.IntersectionObserver)
   const list = {
     get children() {return cards.map(card => card.querySelector("[data-history-card]"))},
     replaceChildren() {cards.length = 0},
@@ -157,7 +165,7 @@ test("history shows latest scans and downloads, supports copying, re-download, r
   const clear = {disabled: true}
   const template = {content: {cloneNode() {
     const fields = new Map()
-    for (const name of ["card", "image", "title", "payload", "date", "download", "copy", "remove"]) {
+    for (const name of ["card", "image", "title", "payload", "date", "download", "copy", "open", "remove"]) {
       const selector = `[data-history-${name}]`
       fields.set(selector, {
         textContent: "",
@@ -181,8 +189,10 @@ test("history shows latest scans and downloads, supports copying, re-download, r
   assert.equal(cards[0].querySelector("[data-history-payload]").textContent, entry.payload)
   assert.equal(cards[1].querySelector("[data-history-title]").textContent, "Scanned QR code")
   assert.equal(cards[1].querySelector("[data-history-payload]").textContent, scanned)
-  assert.equal(cards[1].querySelector("[data-history-image]"), undefined)
+  assert.ok(previewImages.has(cards[1].querySelector("[data-history-image]")))
+  assert.equal(cards[1].querySelector("[data-history-open]"), undefined)
   assert.equal(cards[1].querySelector("[data-history-download]"), undefined)
+  assert.equal(cards[0].querySelector("[data-history-open]"), undefined)
   assert.equal(clear.disabled, false)
   await click("copy", cards[1])
   assert.deepEqual(copied, [scanned])
@@ -202,8 +212,11 @@ test("history shows latest scans and downloads, supports copying, re-download, r
   await click("remove", cards[0])
   await until(() => cards.length === 1)
   assert.equal((await entries()).length, 1)
-  await saveScans([{text: "Another QR"}])
+  now++
+  await saveScans([{text: "lego.com"}])
   await until(() => cards.length === 2)
+  assert.equal(cards[0].querySelector("[data-history-payload]").textContent, "lego.com")
+  assert.equal(cards[0].querySelector("[data-history-open]").href, "https://lego.com/")
   await click("clear")
   await until(() => cards.length === 0)
   assert.equal((await entries()).length, 0)
